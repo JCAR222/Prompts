@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptVault • Biblioteca de @sergioprompts</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff', 100: '#ede9fe', 500: '#8b5cf6',
+              600: '#7c3aed', 700: '#6d28d9', 900: '#4c1d95',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .glassmorphism {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .filters-sticky {
+      position: sticky;
+      top: 73px;
+      z-index: 30;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    }
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    }
+    .new-badge-pulse { animation: pulse-red 2s infinite; }
+    .cat-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.25rem;
+      height: 1.1rem;
+      padding: 0 0.3rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: inherit;
+      margin-left: 0.15rem;
+    }
+    .cat-count.active { background: rgba(255, 255, 255, 0.25); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-brand-500 selection:text-white">
+
+  <div id="toast" role="status" aria-live="polite"
+       class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 bg-brand-600 text-white px-5 py-3 rounded-xl shadow-2xl border border-brand-400/30 max-w-md">
+    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-300 shrink-0" aria-hidden="true"></i>
+    <span id="toast-message" class="text-sm font-medium">¡Prompt copiado al portapapeles!</span>
+  </div>
+
+  <header class="border-b border-slate-800 bg-slate-900/85 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-bold text-xl">
+          <i data-lucide="sparkles" class="w-6 h-6" aria-hidden="true"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">PromptVault</h1>
+            <span class="text-xs bg-brand-900/60 text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-mono">@sergioprompts</span>
+          </div>
+          <p class="text-xs text-slate-400">Biblioteca y gestor interactivo de prompts para LLMs</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+        <div class="hidden lg:flex items-center gap-3 text-xs font-mono text-slate-400 mr-2">
+          <span>Total: <strong id="stat-total" class="text-brand-400">0</strong></span>
+          <span aria-hidden="true">•</span>
+          <span>Importados: <strong id="stat-imported" class="text-cyan-400">0</strong></span>
+          <span aria-hidden="true">•</span>
+          <span>Favoritos: <strong id="stat-favs" class="text-amber-400">0</strong></span>
+          <span aria-hidden="true">•</span>
+          <span>Nuevos: <strong id="stat-new" class="text-red-400">0</strong></span>
+        </div>
+
+        <button onclick="exportPrompts()" title="Descargar toda la base de datos como JSON" class="flex items-center gap-2 text-xs font-semibold bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-300 border border-emerald-600/40 px-3 py-2.5 rounded-lg transition-all">
+          <i data-lucide="download" class="w-4 h-4" aria-hidden="true"></i>
+          <span class="hidden sm:inline">Exportar base</span>
+        </button>
+        <button onclick="document.getElementById('import-file-input').click()" title="Reemplazar la base de datos desde un JSON" class="flex items-center gap-2 text-xs font-semibold bg-sky-900/40 hover:bg-sky-800/60 text-sky-300 border border-sky-600/40 px-3 py-2.5 rounded-lg transition-all">
+          <i data-lucide="upload" class="w-4 h-4" aria-hidden="true"></i>
+          <span class="hidden sm:inline">Importar base</span>
+        </button>
+        <input type="file" id="import-file-input" accept="application/json,.json" class="hidden" onchange="handleImportFile(event)" />
+
+        <button onclick="syncNewPrompts()" id="btn-sync" class="flex items-center gap-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2.5 rounded-lg transition-all">
+          <i data-lucide="refresh-cw" class="w-4 h-4" aria-hidden="true"></i>
+          <span class="hidden sm:inline">Control Nuevos</span>
+        </button>
+        <button onclick="openNewPromptModal(this)" class="flex items-center gap-2 text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white px-3 py-2.5 rounded-lg shadow-md hover:shadow-brand-500/25 transition-all">
+          <i data-lucide="plus" class="w-4 h-4" aria-hidden="true"></i>
+          <span class="hidden sm:inline">Nuevo Prompt</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
+
+    <div class="filters-sticky p-4 flex flex-col gap-3">
+      <div class="flex flex-col lg:flex-row gap-3">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true"></i>
+          <input type="text" id="search-input" aria-label="Buscar prompts"
+            placeholder="Buscar por título, contenido o variables (ej. [AUDIENCIA])..."
+            class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-11 pr-4 py-2.5 text-sm focus:outline-none focus:border-brand-500 text-slate-100 placeholder-slate-500 transition-colors" />
+          <button id="clear-search" onclick="clearSearch()" aria-label="Limpiar búsqueda" class="hidden absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-4 h-4" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <select id="filter-difficulty" onchange="applyFilters()" aria-label="Filtrar por dificultad" class="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 transition-colors">
+          <option value="all">Cualquier dificultad</option>
+          <option value="Principiante">Principiante</option>
+          <option value="Intermedio">Intermedio</option>
+          <option value="Avanzado">Avanzado</option>
+        </select>
+
+        <select id="filter-lang" onchange="applyFilters()" aria-label="Filtrar por idioma" class="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 transition-colors">
+          <option value="all">Todos los idiomas</option>
+          <option value="es">Español</option>
+          <option value="en">Inglés</option>
+        </select>
+
+        <div class="relative">
+          <i data-lucide="type" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true"></i>
+          <input type="number" id="filter-min-words" min="0" step="1" placeholder="Mín. palabras"
+            onchange="applyFilters()" oninput="applyFiltersDebounced()"
+            aria-label="Filtrar por cantidad mínima de palabras del cuerpo del prompt"
+            class="w-36 bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 transition-colors placeholder-slate-500" />
+        </div>
+
+        <button id="btn-fav-filter" onclick="toggleFavFilter()" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700/80 bg-slate-900 text-slate-300 hover:text-white hover:border-amber-400 text-sm font-medium transition-colors">
+          <i data-lucide="star" class="w-4 h-4" aria-hidden="true"></i>
+          <span id="fav-btn-label">Solo Favoritos</span>
+        </button>
+
+        <button id="btn-new-filter" onclick="toggleNewFilter()" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700/80 bg-slate-900 text-slate-300 hover:text-white hover:border-red-400 text-sm font-medium transition-colors">
+          <i data-lucide="sparkle" class="w-4 h-4" aria-hidden="true"></i>
+          <span id="new-btn-label">Solo Nuevos</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-1 border-t border-slate-800/80" id="category-pills"></div>
+    </div>
+
+    <div id="prompts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+    <div id="empty-state" class="hidden flex-col items-center justify-center py-20 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4">
+        <i data-lucide="inbox" class="w-8 h-8" aria-hidden="true"></i>
+      </div>
+      <h3 class="text-lg font-semibold text-slate-200">No se encontraron prompts</h3>
+      <p class="text-sm text-slate-400 max-w-sm mt-1">Prueba cambiando los términos de búsqueda o relajando los filtros activos.</p>
+    </div>
+  </main>
+
+  <div id="variable-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true"
+       class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="glassmorphism max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div>
+          <span id="modal-category" class="text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider"></span>
+          <h2 id="modal-title" class="text-lg font-bold text-white mt-1">Personalizar Prompt</h2>
+        </div>
+        <button onclick="closeVariableModal()" aria-label="Cerrar" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-6 flex-1 text-sm">
+        <p id="modal-description" class="text-slate-400 text-xs"></p>
+        <div id="modal-variables-container" class="space-y-3 bg-slate-950/40 p-4 rounded-xl border border-slate-800">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
+            <i data-lucide="sliders" class="w-3.5 h-3.5" aria-hidden="true"></i> Variables detectadas
+          </h4>
+          <div id="modal-inputs" class="space-y-3"></div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5 text-slate-400" aria-hidden="true"></i> Vista previa del Prompt final
+            </span>
+            <span id="translation-indicator" class="hidden text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+              <i data-lucide="languages" class="w-3 h-3" aria-hidden="true"></i> Traducido al español
+            </span>
+            <span id="preview-hint" class="text-[11px] text-slate-500">Se actualiza mientras escribes</span>
+          </div>
+          <div id="modal-preview" class="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto selection:bg-brand-600"></div>
+        </div>
+      </div>
+      <div class="p-4 border-t border-slate-800 bg-slate-900/60 flex flex-wrap items-center justify-between gap-2">
+        <button onclick="resetModalInputs()" class="text-xs text-slate-400 hover:text-white px-3 py-2 rounded-lg">Restablecer</button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="translatePrompt()" id="btn-translate" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs px-3 py-2.5 rounded-xl border border-slate-700 transition-colors">
+            <i data-lucide="languages" class="w-4 h-4 text-emerald-400" aria-hidden="true"></i>
+            <span>Traducir al Español</span>
+          </button>
+          <button onclick="copyProcessedPrompt()" id="btn-copy-processed" class="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-lg transition-colors">
+            <i data-lucide="copy" class="w-4 h-4" aria-hidden="true"></i> Copiar Prompt Listo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="new-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="new-prompt-title" aria-hidden="true"
+       class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="glassmorphism max-w-xl w-full rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <h2 id="new-prompt-title" class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-brand-400" aria-hidden="true"></i> Añadir Prompt a la Biblioteca
+        </h2>
+        <button onclick="closeNewPromptModal()" aria-label="Cerrar" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5" aria-hidden="true"></i>
+        </button>
+      </div>
+      <form id="new-prompt-form" onsubmit="handleCreatePrompt(event)" class="p-6 space-y-4 overflow-y-auto text-xs">
+        <div>
+          <label for="new-title" class="block font-semibold text-slate-300 mb-1">Título del Prompt</label>
+          <input type="text" id="new-title" required placeholder="Ej: Generador de Ganchos para Twitter/X" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="new-category" class="block font-semibold text-slate-300 mb-1">Categoría</label>
+            <select id="new-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand-500">
+              <option value="desarrollo">Desarrollo</option>
+              <option value="marketing">Marketing</option>
+              <option value="productividad">Productividad</option>
+              <option value="creatividad">Creatividad</option>
+              <option value="general">General</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-difficulty" class="block font-semibold text-slate-300 mb-1">Dificultad</label>
+            <select id="new-difficulty" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand-500">
+              <option value="Principiante">Principiante</option>
+              <option value="Intermedio">Intermedio</option>
+              <option value="Avanzado">Avanzado</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label for="new-description" class="block font-semibold text-slate-300 mb-1">Descripción Breve</label>
+          <input type="text" id="new-description" required placeholder="Para qué sirve y cuál es el resultado esperado..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand-500" />
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label for="new-body" class="block font-semibold text-slate-300">Cuerpo del Prompt (usa [VARIABLE] para variables)</label>
+            <span class="text-[10px] text-brand-400">Ej: [TEMA], [AUDIENCIA]</span>
+          </div>
+          <textarea id="new-body" rows="6" required placeholder="Actúa como un experto en [ROL]..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-100 font-mono focus:outline-none focus:border-brand-500"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeNewPromptModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white">Cancelar</button>
+          <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-white font-semibold px-4 py-2 rounded-lg shadow">Guardar Prompt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    /* =========================== SEGURIDAD =========================== */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    /* =========================== UTILIDADES =========================== */
+    /* Cuenta palabras separadas por espacios/tabs/saltos. No cuenta el título. */
+    function countWords(text) {
+      if (!text) return 0;
+      return text.trim().split(/\s+/).filter(Boolean).length;
+    }
+
+    function debounce(fn, delay = 250) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+    }
+
+    /* =========================== DATOS INICIALES =========================== */
+    const INITIAL_PROMPTS = [
+      { id: "sp-dev-01", title: "Refactorizador de Código Limpio y Patrones SOLID", category: "desarrollo", difficulty: "Avanzado", description: "Transforma código espagueti en código limpio, modular, tipado y optimizado bajo principios SOLID.", prompt: `Actúa como un Ingeniero de Software Principal y Arquitecto de Software Senior con más de 15 años de experiencia en [LENGUAJE].
+
+Tu misión es refactorizar el siguiente fragmento de código garantizando:
+1. Principios SOLID y Clean Code (nombres descriptivos, funciones con responsabilidad única).
+2. Reducción de complejidad ciclomática y eliminación de código redundante.
+3. Tipado estricto y manejo idiomático de errores/excepciones.
+4. Complejidad temporal y espacial óptima (Big O notation).
+
+Código original:
+\`\`\`[LENGUAJE]
+[CODIGO_ORIGINAL]
+\`\`\`
+
+Formato de respuesta:
+- Análisis de 3 puntos críticos a mejorar en el código original.
+- Código refactorizado completo y documentado.
+- Breve explicación técnica de los patrones de diseño aplicados.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-dev-02", title: "Generador de Suites de Tests Unitarios (TDD Edge Cases)", category: "desarrollo", difficulty: "Intermedio", description: "Crea tests automatizados cubriendo casos límite, inyecciones inesperadas y validaciones.", prompt: `Actúa como un Lead QA Automation Engineer especialista en [FRAMEWORK_TEST] (por ejemplo: Jest, PyTest, JUnit).
+
+Escribe una batería completa de pruebas unitarias para la siguiente función/módulo:
+
+\`\`\`
+[CODIGO_O_FUNCION]
+\`\`\`
+
+Requisitos:
+- Happy Path (casos ideales).
+- Edge Cases (valores nulos, arrays vacíos, strings gigantes, límites numéricos).
+- Manejo de excepciones y rechazos asíncronos.
+- Usa mocks cuando interactúe con dependencias externas o APIs.
+- Comenta cada test indicando el objetivo de la aserción.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-dev-03", title: "Auditor de Seguridad y Detección de Vulnerabilidades", category: "desarrollo", difficulty: "Avanzado", description: "Analiza código en busca de fallos OWASP Top 10, inyecciones SQL, XSS y fugas de memoria.", prompt: `Actúa como un Hacker Ético y Auditor de Ciberseguridad AppSec certificado (OSCP, CISSP).
+
+Analiza rigurosamente el siguiente código en busca de vulnerabilidades:
+\`\`\`
+[CODIGO_A_AUDITAR]
+\`\`\`
+
+Entrega tu reporte estructurado en una tabla:
+| Vulnerabilidad / CVE potencial | Severidad (Baja/Media/Alta/Crítica) | Vector de Ataque | Solución / Parche Recomendado |
+
+Finaliza mostrando el bloque de código corregido y sanitizado.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-dev-04", title: "Explicador de Conceptos Técnicos Complejos (Técnica Feynman)", category: "desarrollo", difficulty: "Principiante", description: "Desglosa conceptos de programación complejos mediante analogías cotidianas accesibles.", prompt: `Actúa como el mejor docente de ciencias de la computación del mundo, experto en la Técnica de Enseñanza Feynman.
+
+Explica el concepto técnico: "[CONCEPTO_TECNICO]"
+Público objetivo: [NIVEL_AUDIENCIA] (ej: Desarrollador Junior sin experiencia en backend / Persona sin conocimientos técnicos).
+
+Estructura requerida:
+1. Definición en una sola frase memorable sin tecnicismos complejos.
+2. Analogía del mundo real (ej. comparándolo con una cocina, tráfico vehicular, etc.).
+3. Ejemplo práctico mínimo en código o diagrama textual explicativo.
+4. El error conceptual más común que comete la gente al intentar entenderlo.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-mkt-01", title: "Landing Page Copywriting con Framework P.A.S. + A.I.D.A.", category: "marketing", difficulty: "Avanzado", description: "Redacción persuasion-first orientada a conversión para páginas de ventas de productos o SaaS.", prompt: `Actúa como un Copywriter de Respuesta Directa de clase mundial (estilo David Ogilvy y Eugene Schwartz).
+
+Redacta los textos clave para la página de venta (Landing Page) de:
+- Producto/Servicio: [PRODUCTO_SERVICIO]
+- Audiencia Objetivo: [PUBLICO_OBJETIVO]
+- Gran Beneficio / Promesa Principal: [PROMESA_VALOR]
+- Objeción más habitual del cliente: [OBJECION_PRINCIPAL]
+
+Estructura que debes generar:
+1. HERO SECTION: Titular magnético H1 (máx 12 palabras), Subtitular H2 aclaratorio y texto para el botón CTA principal.
+2. SECCIÓN P.A.S.:
+   - Problema: Describir el dolor con empatía vívida.
+   - Agitación: El coste de no resolver el problema hoy.
+   - Solución: Presentación del producto como el puente al resultado deseado.
+3. 3 BALAS DE FASCINACIÓN: Beneficios concretos enfocados en transformación, no solo características.
+4. FAQ ANTI-OBJECIÓN: 3 preguntas frecuentes diseñadas para neutralizar dudas de compra.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-mkt-02", title: "Fábrica de Ganchos (Hooks) Virales para Redes Sociales", category: "marketing", difficulty: "Principiante", description: "Genera ganchos hipnóticos basados en curiosidad, contraste y polaridad para Twitter/X, Reels o LinkedIn.", prompt: `Actúa como un estratega de contenido viral y ghostwriter de las cuentas más leídas de internet.
+
+Tema del post o vídeo: [TEMA_CONTENIDO]
+Emoción dominante a evocar: [EMOCION] (ej: indignación sana, asombro, curiosidad extrema, FOMO)
+
+Genera 10 ganchos de primera línea clasificados por fórmulas:
+- 2 de Apertura de Bucle de Curiosidad (Open Loop).
+- 2 de Declaración Contraintuitiva / Impopular.
+- 2 de Transformación "De X a Y".
+- 2 de Lista Curada de Alto Valor.
+- 2 de Error Costoso que el 99% comete.
+
+Regla estricta: Cada gancho debe tener menos de 18 palabras y evitar sonar a clickbait barato o genérico.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-mkt-03", title: "Secuencia de Email Nurturing (Cadencia de 4 Días)", category: "marketing", difficulty: "Intermedio", description: "Secuencia automatizada para convertir suscriptores fríos en compradores calificados.", prompt: `Actúa como un Especialista en Email Marketing y Embudos Automatizados.
+
+Crea una secuencia de 4 emails diarios para dar la bienvenida a quien acaba de descargar: [LEAD_MAGNET]
+El producto final a vender al final de la secuencia es: [PRODUCTO_FINAL] (Precio: [PRECIO])
+
+Desarrolla cada email con su "Línea de Asunto (A/B testing)", "Cuerpo" y "Llamada a la Acción":
+- Email 1: Entrega del recurso + micro-historia de origen para conectar.
+- Email 2: La verdad incómoda (romper la creencia errónea más común del sector).
+- Email 3: Caso de estudio o demostración tangible del método.
+- Email 4: Apertura de oferta con urgencia ética y llamado directo a la acción.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-mkt-04", title: "Investigación Profunda de Buyer Persona / Avatar de Cliente", category: "marketing", difficulty: "Intermedio", description: "Radiografía psicológica: miedos ocultos, deseos inconfesables y lenguaje exacto del cliente.", prompt: `Actúa como un Investigador de Mercado de Consumo y Psicólogo Conductual.
+
+Construye un perfil psicológico profundo y exhaustivo para:
+Nicho o Negocio: [NICHO_MERCADO]
+Problema que resuelves: [PROBLEMA_CENTRAL]
+
+Detalla:
+1. Dolores Viscerales (Lo que no le deja dormir a las 3:00 AM).
+2. Sueño Secreto (Cómo se visualiza dentro de 1 año si todo sale perfecto).
+3. Enemigo Común (A quién o qué culpa de su situación actual).
+4. El Vocabulario Exacto: 5 frases textuales literales que diría en foros de Reddit o grupos de WhatsApp al quejarse.
+5. El Disparador de Decisión: Qué evento puntual le obliga a comprar ahora y no posponerlo más.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-prod-01", title: "Resumidor Ejecutivo de Textos Densos y Extractor de Decisiones", category: "productividad", difficulty: "Principiante", description: "Condensa transcripciones, minutas de reunión o PDFs largos en 2 minutos de lectura.", prompt: `Actúa como el Jefe de Gabinete (Chief of Staff) de un Director Ejecutivo (CEO).
+
+Procesa el siguiente texto/reunión y entrégame un Resumen Ejecutivo de Alto Impacto:
+\`\`\`
+[TEXTO_O_TRANSCRIPCION]
+\`\`\`
+
+Formato exacto:
+1. TL;DR (Resumen en 3 viñetas concisas).
+2. Decisiones Tomadas (Qué se aprobó o descartó formalmente).
+3. Matriz de Acción (Action Items):
+   - Quién | Tarea específica | Fecha límite estimada (si se menciona).
+4. Riesgos o Bloqueos no resueltos identificados.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-prod-02", title: "Planificador de Jornada con Time-Blocking y Matriz Eisenhower", category: "productividad", difficulty: "Intermedio", description: "Convierte una lista desordenada de tareas pendientes en un calendario hiper-enfocado.", prompt: `Actúa como un Entrenador de Alto Rendimiento y Especialista en Gestión del Tiempo (Deep Work).
+
+Tengo las siguientes tareas pendientes para hoy:
+\`\`\`
+[LISTA_DE_TAREAS]
+\`\`\`
+Horas totales disponibles de trabajo: [HORAS_DISPONIBLES] horas.
+
+Instrucciones:
+1. Clasifica las tareas según la Matriz de Eisenhower (Urgente/Importante).
+2. Aplica la Ley de Pareto (identifica el 20% de tareas que producirán el 80% de impacto hoy).
+3. Diseña mi agenda horaria en bloques de Deep Work (bloques de 90 min de foco total) y Shallow Work (gestión de emails, llamadas, mensajes).
+4. Señala qué tareas debería delegar, posponer o derechamente eliminar hoy.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-prod-03", title: "Redactor de Correos Difíciles y Negociación Asertiva", category: "productividad", difficulty: "Intermedio", description: "Redacta respuestas diplomáticas pero firmes para fijar límites con clientes o superiores.", prompt: `Actúa como un Negociador Diplomático y Experto en Comunicación Ejecutiva Asertiva.
+
+Necesito redactar un correo electrónico para responder a la siguiente situación:
+- Destinatario: [DESTINATARIO] (ej: cliente exigente, jefe, proveedor)
+- Situación incómoda o petición inapropiada: [SITUACION_CONFLICTIVA]
+- Mi objetivo real (lo que debo rechazar o acordar): [OBJETIVO_DESEADO]
+
+Requisitos del correo:
+- Tono: Profesional, cordial, empático pero 100% innegociable en los límites.
+- Sin pedir disculpas innecesarias ni sonar a la defensiva.
+- Proponer una alternativa viable sin comprometer mi tiempo o recursos.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-prod-04", title: "Acelerador de Aprendizaje 80/20 (Ultralearning)", category: "productividad", difficulty: "Avanzado", description: "Crea una hoja de ruta ultra-condensada de 4 semanas para dominar cualquier habilidad nueva.", prompt: `Actúa como un Experto en Andragogía, Ciencia Cognitiva y Técnicas de Ultralearning.
+
+Quiero aprender y ser competente en: [HABILIDAD_A_APRENDER]
+Tiempo disponible para dedicarle: [HORAS_SEMANALES] horas por semana durante 4 semanas.
+
+Desarrolla un plan de estudio hiper-eficiente:
+1. Desglose del 20% de los fundamentos que abarcan el 80% de la aplicación práctica real.
+2. Hoja de ruta dividida en 4 semanas con un proyecto práctico final para cada semana.
+3. Los 3 mejores recursos sin coste (documentaciones oficiales, canales especializados o libros clave).
+4. Un ejercicio diario deliberado para forzar la retención activa (Active Recall).`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-crea-01", title: "Generador de Ángulos de Historia (Storytelling: El Viaje del Héroe)", category: "creatividad", difficulty: "Intermedio", description: "Transforma anécdotas o experiencias ordinarias en narrativas cautivadoras de marca personal.", prompt: `Actúa como un Guionista de Cine y Maestro Narrador de Historias (Storyteller).
+
+Tengo esta experiencia personal o lección aprendida:
+"[EXPERIENCIA_O_ANECDOTA]"
+
+Público al que le cuento la historia: [AUDIENCIA]
+Mensaje moral o conclusión que quiero transmitir: [MENSAJE_CLAVE]
+
+Reescribe esta anécdota adaptándola al arco clásico:
+1. El Mundo Ordinario y la llamada a la aventura (El estado inicial).
+2. El Abismo / Punto de Quiebre (El momento de mayor duda o fracaso).
+3. La Revelación o Epifanía (El aprendizaje transformador).
+4. El Retorno con el Elixir (Cómo esta lección sirve al lector hoy).
+
+Hazlo en primera persona, con oraciones rítmicas y detalles sensoriales.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-crea-02", title: "Ingeniero de Prompts Fotográficos para Midjourney / FLUX", category: "creatividad", difficulty: "Principiante", description: "Crea instrucciones hiperrealistas con iluminación de estudio, cámara, lente y estilo artístico.", prompt: `Actúa como un Director de Fotografía Cinematográfica y Prompt Engineer experto en Midjourney v6 y Flux.1.
+
+Quiero generar una imagen de: [SUJETO_O_ESCENA]
+Estilo visual deseado: [ESTILO_VISUAL] (ej: Fotografía analógica 35mm, Cyberpunk cinematográfico, Editorial de moda Vogue, Hiperrealismo documental)
+Emoción o atmósfera: [ATMOSFERA]
+
+Genera 3 variantes de prompts en inglés listos para copiar:
+- Variante 1: Enfoque realista fotorreportaje (especificando cámara como Leica M11, lente 50mm f/1.2, iluminación natural de hora dorada).
+- Variante 2: Enfoque cinematográfico de película (iluminación volumétrica, Kodak Portra 400, aspect ratio --ar 16:9).
+- Variante 3: Enfoque artístico estilizado con texturas de alto detalle.`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-crea-03", title: "Ideador Disruptivo de Negocios y Productos (Método SCAMPER)", category: "creatividad", difficulty: "Avanzado", description: "Aplica pensamiento lateral para reinventar un producto convencional en una propuesta innovadora.", prompt: `Actúa como un Consultor de Innovación Radical y Design Thinking en Silicon Valley.
+
+Aplica la técnica creativa S.C.A.M.P.E.R. al siguiente producto/servicio tradicional:
+"[PRODUCTO_O_INDUSTRIA_ACTUAL]"
+
+Proporciona al menos una idea disruptiva y aplicable para cada eje:
+- S (Sustituir): ¿Qué material, paso o modelo de cobro podemos reemplazar?
+- C (Combinar): ¿Con qué otra industria ajena podemos fusionarlo?
+- A (Adaptar): ¿Qué solución de otro sector podemos importar?
+- M (Modificar/Magnificar): ¿Qué elemento exageramos al 10x?
+- P (Poner en otros usos): ¿A qué público radicalmente diferente puede servir?
+- E (Eliminar): ¿Qué complejidad innecesaria podemos podar al mínimo?
+- R (Reorganizar/Revertir): ¿Cómo funcionaría al revés del mercado tradicional?
+
+Concluye seleccionando la idea más viable con su propuesta de valor única (UVP).`, author: "@sergioprompts", lang: "es" },
+      { id: "sp-crea-04", title: "Generador de Metáforas y Analogías Memorables", category: "creatividad", difficulty: "Principiante", description: "Diseña metáforas visuales que hacen que cualquier presentación o discurso sea inolvidable.", prompt: `Actúa como un Escritor Creativo y Asesor de Discursos TED Talks.
+
+Necesito explicar la siguiente idea abstracta: "[IDEA_O_CONCEPTO]"
+Para un público que suele aburrirse con la teoría convencional.
+
+Crea 4 opciones de analogías creativas basadas en diferentes mundos:
+1. Una analogía biológica o de la naturaleza.
+2. Una analogía culinaria o gastronómica.
+3. Una analogía de arquitectura o mecánica de vehículos.
+4. Una analogía deportiva o de videojuegos.
+
+Cada analogía debe explicar el mecanismo central en menos de 4 líneas y culminar con un remate memorable.`, author: "@sergioprompts", lang: "es" }
+    ];
+
+    /* =========================== ESTADO =========================== */
+    const STORAGE_KEY_PROMPTS = "promptvault_items_v3";
+    const STORAGE_KEY_FAVS = "promptvault_favorites_v3";
+    const MIN_WORDS_ON_SYNC = 5; // descartar prompts con menos de 5 palabras en el cuerpo
+
+    let prompts = [];
+    let favorites = new Set();
+    let currentCategory = "all";
+    let currentDifficulty = "all";
+    let currentLang = "all";
+    let currentMinWords = 0;
+    let onlyFavorites = false;
+    let onlyNew = false;
+    let searchQuery = "";
+    let activePrompt = null;
+    let currentVariablesValues = {};
+    let toastTimer = null;
+    let lastFocusedElement = null;
+    let classifierPipeline = null;
+    let isSyncing = false;
+    let syncCancelled = false;
+    let syncMaxItems = 100;
+    let translatedText = null;
+    let isTranslating = false;
+
+    /* =========================== INICIALIZACIÓN =========================== */
+    function initApp() {
+      try {
+        const savedFavs = localStorage.getItem(STORAGE_KEY_FAVS);
+        if (savedFavs) favorites = new Set(JSON.parse(savedFavs));
+      } catch (e) { favorites = new Set(); }
+
+      try {
+        const savedPrompts = localStorage.getItem(STORAGE_KEY_PROMPTS);
+        if (savedPrompts) prompts = JSON.parse(savedPrompts);
+      } catch (e) { prompts = []; }
+
+      if (!Array.isArray(prompts) || prompts.length === 0) {
+        prompts = INITIAL_PROMPTS.map(p => ({ ...p }));
+        savePromptsToStorage();
+      }
+
+      prompts.forEach(p => { if (!p.lang) p.lang = detectLanguage(p.prompt || ""); });
+
+      renderCategoryPills();
+      setupEventListeners();
+      setupModalListeners();
+      renderPrompts();
+      updateStats();
+      lucide.createIcons();
+
+      if (location.protocol === "file:") {
+        setTimeout(() => {
+          showToast("⚠️ Estás en file://. Para sincronizar y traducir abre con: python3 -m http.server");
+        }, 1500);
+      }
+    }
+
+    /* =========================== PERSISTENCIA =========================== */
+    function savePromptsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_PROMPTS, JSON.stringify(prompts));
+        return { ok: true, trimmed: 0 };
+      } catch (e) {
+        console.warn("Cuota localStorage excedida:", e);
+        const originalCount = prompts.length;
+        const manuales = prompts.filter(p => !p.id.startsWith("pc-"));
+        let importadosFavs = prompts.filter(p => p.id.startsWith("pc-") && favorites.has(p.id));
+        let importadosResto = prompts.filter(p => p.id.startsWith("pc-") && !favorites.has(p.id));
+        let nuevosImportados = importadosResto.slice(0, 200);
+        let candidatos = [...manuales, ...importadosFavs, ...nuevosImportados];
+
+        let intentos = 0;
+        while (intentos < 8) {
+          try {
+            localStorage.setItem(STORAGE_KEY_PROMPTS, JSON.stringify(candidatos));
+            prompts = candidatos;
+            return { ok: true, trimmed: originalCount - prompts.length };
+          } catch (e2) {
+            if (nuevosImportados.length > 20) {
+              nuevosImportados = nuevosImportados.slice(0, Math.floor(nuevosImportados.length / 2));
+            } else if (importadosFavs.length > 10) {
+              importadosFavs = importadosFavs.slice(0, Math.floor(importadosFavs.length / 2));
+            } else break;
+            candidatos = [...manuales, ...importadosFavs, ...nuevosImportados];
+            intentos++;
+          }
+        }
+        prompts = manuales;
+        try { localStorage.setItem(STORAGE_KEY_PROMPTS, JSON.stringify(prompts)); } catch (e3) {}
+        return { ok: false, trimmed: originalCount - prompts.length };
+      }
+    }
+
+    function saveFavoritesToStorage() {
+      try { localStorage.setItem(STORAGE_KEY_FAVS, JSON.stringify(Array.from(favorites))); }
+      catch (e) { console.warn("No se pudo guardar favoritos:", e); }
+    }
+
+    /* =========================== IDIOMA =========================== */
+    const SPANISH_WORDS = [" el ", " la ", " de ", " que ", " y ", " en ", " un ", " una ", " es ", " por ", " con ", " para ", " como ", " pero ", " más ", "actúa", "quiero", "tengo", "necesito"];
+    const ENGLISH_WORDS = [" the ", " and ", " to ", " of ", " a ", " in ", " is ", " it ", " you ", " that ", " for ", " with ", " as ", " on ", " be ", "act as", "i want", "i need"];
+
+    function detectLanguage(text) {
+      if (!text) return "es";
+      const lower = " " + text.toLowerCase() + " ";
+      let es = 0, en = 0;
+      SPANISH_WORDS.forEach(w => { if (lower.includes(w)) es++; });
+      ENGLISH_WORDS.forEach(w => { if (lower.includes(w)) en++; });
+      if (en > es) return "en";
+      if (es > en) return "es";
+      return en > 0 ? "en" : "es";
+    }
+
+    /* =========================== VARIABLES =========================== */
+    function extractVariables(text) {
+      if (!text) return [];
+      const matches = text.match(/\[([A-Z0-9_ÁÉÍÓÚÑ]+)\]/g);
+      if (!matches) return [];
+      return [...new Set(matches.map(m => m.slice(1, -1)))];
+    }
+
+    /* =========================== CATEGORÍAS =========================== */
+    const CATEGORIES = [
+      { id: "all", label: "Todos", icon: "layout-grid" },
+      { id: "desarrollo", label: "Desarrollo", icon: "code-2" },
+      { id: "marketing", label: "Marketing", icon: "trending-up" },
+      { id: "productividad", label: "Productividad", icon: "zap" },
+      { id: "creatividad", label: "Creatividad", icon: "palette" },
+      { id: "general", label: "General", icon: "layers" }
+    ];
+
+    function countByCategory(catId) {
+      return prompts.filter(p => {
+        if (catId !== "all" && p.category !== catId) return false;
+        if (currentDifficulty !== "all" && p.difficulty !== currentDifficulty) return false;
+        if (currentLang !== "all" && p.lang !== currentLang) return false;
+        if (currentMinWords > 0 && countWords(p.prompt) < currentMinWords) return false;
+        if (onlyFavorites && !favorites.has(p.id)) return false;
+        if (onlyNew && !p.isNew) return false;
+        if (searchQuery.trim() !== "") {
+          const q = searchQuery.toLowerCase();
+          return (p.title || "").toLowerCase().includes(q)
+              || (p.description || "").toLowerCase().includes(q)
+              || (p.prompt || "").toLowerCase().includes(q)
+              || (p.category || "").toLowerCase().includes(q);
+        }
+        return true;
+      }).length;
+    }
+
+    function renderCategoryPills() {
+      const container = document.getElementById("category-pills");
+      container.innerHTML = CATEGORIES.map(cat => {
+        const isActive = currentCategory === cat.id;
+        const count = countByCategory(cat.id);
+        const activeClass = isActive
+          ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
+          : "bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800";
+        return `
+          <button onclick="setCategory('${escapeHtml(cat.id)}')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${activeClass}">
+            <i data-lucide="${escapeHtml(cat.icon)}" class="w-3.5 h-3.5" aria-hidden="true"></i>
+            <span>${escapeHtml(cat.label)}</span>
+            <span class="cat-count ${isActive ? 'active' : ''}">${count}</span>
+          </button>`;
+      }).join("");
+      lucide.createIcons();
+    }
+
+    function getDifficultyBadge(diff) {
+      const safe = escapeHtml(diff);
+      if (diff === "Principiante") return `<span class="bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${safe}</span>`;
+      if (diff === "Intermedio") return `<span class="bg-amber-950/60 text-amber-400 border border-amber-500/30 text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>${safe}</span>`;
+      if (diff === "Avanzado") return `<span class="bg-rose-950/60 text-rose-400 border border-rose-500/30 text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>${safe}</span>`;
+      return "";
+    }
+
+    function getCategoryBadge(catId) {
+      const safe = escapeHtml(catId);
+      const map = {
+        desarrollo: "bg-cyan-950/60 text-cyan-300 border-cyan-500/30",
+        marketing: "bg-rose-950/60 text-rose-300 border-rose-500/30",
+        productividad: "bg-amber-950/60 text-amber-300 border-amber-500/30",
+        creatividad: "bg-purple-950/60 text-purple-300 border-purple-500/30",
+        general: "bg-slate-800 text-slate-300 border-slate-600"
+      };
+      const cls = map[catId] || "bg-slate-800 text-slate-300 border-slate-700";
+      return `<span class="${cls} border text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">${safe}</span>`;
+    }
+
+    function getLangBadge(lang) {
+      if (lang === "en") return `<span class="bg-slate-800 text-slate-300 border border-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded">EN</span>`;
+      return `<span class="bg-slate-800 text-slate-300 border border-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded">ES</span>`;
+    }
+
+    /* =========================== RENDER =========================== */
+    function renderPrompts() {
+      const grid = document.getElementById("prompts-grid");
+      const emptyState = document.getElementById("empty-state");
+
+      const filtered = prompts.filter(p => {
+        if (currentCategory !== "all" && p.category !== currentCategory) return false;
+        if (currentDifficulty !== "all" && p.difficulty !== currentDifficulty) return false;
+        if (currentLang !== "all" && p.lang !== currentLang) return false;
+        if (currentMinWords > 0 && countWords(p.prompt) < currentMinWords) return false;
+        if (onlyFavorites && !favorites.has(p.id)) return false;
+        if (onlyNew && !p.isNew) return false;
+        if (searchQuery.trim() !== "") {
+          const q = searchQuery.toLowerCase();
+          return (p.title || "").toLowerCase().includes(q)
+              || (p.description || "").toLowerCase().includes(q)
+              || (p.prompt || "").toLowerCase().includes(q)
+              || (p.category || "").toLowerCase().includes(q);
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        emptyState.classList.remove("hidden");
+        emptyState.classList.add("flex");
+        return;
+      }
+      emptyState.classList.add("hidden");
+      emptyState.classList.remove("flex");
+
+      grid.innerHTML = filtered.map(p => {
+        const isFav = favorites.has(p.id);
+        const vars = extractVariables(p.prompt);
+        const wc = countWords(p.prompt);
+        const varsPills = vars.slice(0, 3).map(v =>
+          `<span class="bg-slate-800 text-slate-300 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-700/60">[${escapeHtml(v)}]</span>`
+        ).join("");
+        const extraVarsCount = vars.length > 3 ? `<span class="text-[10px] text-slate-500 font-mono">+${vars.length - 3}</span>` : "";
+        const highlightClass = p.isNew ? "ring-2 ring-red-500 shadow-lg shadow-red-500/30" : "";
+        const newBadge = p.isNew ? `<span class="absolute -top-2 -right-2 z-10 text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full shadow-lg new-badge-pulse">NUEVO</span>` : "";
+
+        return `
+          <div class="glassmorphism rounded-2xl p-5 flex flex-col justify-between hover:border-slate-600 transition-all duration-200 group relative ${highlightClass}">
+            ${newBadge}
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                  ${getCategoryBadge(p.category)}
+                  ${getDifficultyBadge(p.difficulty)}
+                  ${getLangBadge(p.lang)}
+                  <span class="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono px-1.5 py-0.5 rounded" title="Palabras en el cuerpo del prompt">${wc}w</span>
+                </div>
+                <button onclick="toggleFavorite('${escapeHtml(p.id)}')" title="${isFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}" aria-label="${isFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}" class="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors">
+                  <i data-lucide="star" class="w-4 h-4 ${isFav ? 'fill-amber-400 text-amber-400' : ''}" aria-hidden="true"></i>
+                </button>
+              </div>
+              <h3 class="font-bold text-sm text-slate-100 group-hover:text-brand-300 transition-colors line-clamp-1 mb-1.5">
+                ${escapeHtml(p.title)}
+              </h3>
+              <p class="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                ${escapeHtml(p.description)}
+              </p>
+              ${vars.length > 0 ? `
+                <div class="mb-4 pt-3 border-t border-slate-800/80">
+                  <span class="text-[10px] text-slate-500 block mb-1.5 font-medium">Variables configurables:</span>
+                  <div class="flex flex-wrap items-center gap-1.5">${varsPills}${extraVarsCount}</div>
+                </div>` : ''}
+            </div>
+            <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-800 mt-2">
+              <span class="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                <i data-lucide="user" class="w-3 h-3 text-brand-400" aria-hidden="true"></i> ${escapeHtml(p.author || '@sergioprompts')}
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button onclick="openVariableModal('${escapeHtml(p.id)}', this)" class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg font-medium transition-colors border border-slate-700/60" title="Completar variables en tiempo real">
+                  <i data-lucide="sliders" class="w-3.5 h-3.5 text-brand-400" aria-hidden="true"></i>
+                  <span>Personalizar</span>
+                </button>
+                <button onclick="quickCopy('${escapeHtml(p.id)}')" class="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm" title="Copia rápida de la plantilla original">
+                  <i data-lucide="copy" class="w-3.5 h-3.5" aria-hidden="true"></i>
+                  <span>Copiar</span>
+                </button>
+              </div>
+            </div>
+          </div>`;
+      }).join("");
+
+      lucide.createIcons();
+      renderCategoryPills();
+    }
+
+    /* =========================== EVENTOS =========================== */
+    function setupEventListeners() {
+      const searchInput = document.getElementById("search-input");
+      const clearBtn = document.getElementById("clear-search");
+      searchInput.addEventListener("input", (e) => {
+        searchQuery = e.target.value;
+        clearBtn.classList.toggle("hidden", searchQuery.length === 0);
+        renderPrompts();
+      });
+    }
+
+    function setupModalListeners() {
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        const varModal = document.getElementById("variable-modal");
+        const newModal = document.getElementById("new-prompt-modal");
+        if (!varModal.classList.contains("hidden")) closeVariableModal();
+        else if (!newModal.classList.contains("hidden")) closeNewPromptModal();
+      });
+      document.getElementById("variable-modal").addEventListener("click", (e) => {
+        if (e.target.id === "variable-modal") closeVariableModal();
+      });
+      document.getElementById("new-prompt-modal").addEventListener("click", (e) => {
+        if (e.target.id === "new-prompt-modal") closeNewPromptModal();
+      });
+    }
+
+    function clearSearch() {
+      const searchInput = document.getElementById("search-input");
+      searchInput.value = "";
+      searchQuery = "";
+      document.getElementById("clear-search").classList.add("hidden");
+      renderPrompts();
+      searchInput.focus();
+    }
+
+    function setCategory(catId) {
+      currentCategory = catId;
+      renderPrompts();
+    }
+
+    function applyFilters() {
+      currentDifficulty = document.getElementById("filter-difficulty").value;
+      currentLang = document.getElementById("filter-lang").value;
+      const rawMin = document.getElementById("filter-min-words").value;
+      const parsedMin = parseInt(rawMin, 10);
+      currentMinWords = (!isNaN(parsedMin) && parsedMin > 0) ? parsedMin : 0;
+      renderPrompts();
+    }
+
+    const applyFiltersDebounced = debounce(applyFilters, 250);
+
+    function toggleFavFilter() {
+      onlyFavorites = !onlyFavorites;
+      const btn = document.getElementById("btn-fav-filter");
+      const label = document.getElementById("fav-btn-label");
+      if (onlyFavorites) {
+        btn.classList.add("bg-amber-500/10", "border-amber-500", "text-amber-400");
+        label.innerText = "Mostrando Favoritos";
+      } else {
+        btn.classList.remove("bg-amber-500/10", "border-amber-500", "text-amber-400");
+        label.innerText = "Solo Favoritos";
+      }
+      renderPrompts();
+    }
+
+    function toggleNewFilter() {
+      onlyNew = !onlyNew;
+      const btn = document.getElementById("btn-new-filter");
+      const label = document.getElementById("new-btn-label");
+      if (onlyNew) {
+        btn.classList.add("bg-red-500/10", "border-red-500", "text-red-400");
+        label.innerText = "Mostrando Nuevos";
+      } else {
+        btn.classList.remove("bg-red-500/10", "border-red-500", "text-red-400");
+        label.innerText = "Solo Nuevos";
+      }
+      renderPrompts();
+    }
+
+    function toggleFavorite(id) {
+      if (favorites.has(id)) favorites.delete(id);
+      else favorites.add(id);
+      saveFavoritesToStorage();
+      renderPrompts();
+      updateStats();
+    }
+
+    function updateStats() {
+      const total = prompts.length;
+      const favs = favorites.size;
+      const newCount = prompts.filter(p => p.isNew).length;
+      const importados = prompts.filter(p => p.id.startsWith("pc-")).length;
+
+      document.getElementById("stat-total").innerText = total;
+      document.getElementById("stat-favs").innerText = favs;
+      const newEl = document.getElementById("stat-new");
+      if (newEl) newEl.innerText = newCount;
+      const impEl = document.getElementById("stat-imported");
+      if (impEl) impEl.innerText = importados;
+    }
+
+    /* =========================== TOAST =========================== */
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      const msgEl = document.getElementById("toast-message");
+      if (toastTimer) clearTimeout(toastTimer);
+      msgEl.innerText = message;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+      toastTimer = setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+        toast.classList.remove("translate-y-0", "opacity-100");
+        toastTimer = null;
+      }, 5000);
+    }
+
+    /* =========================== COPIADO =========================== */
+    function quickCopy(id) {
+      const p = prompts.find(x => x.id === id);
+      if (!p) return;
+      navigator.clipboard.writeText(p.prompt)
+        .then(() => showToast("¡Plantilla de prompt copiada al portapapeles!"))
+        .catch(() => fallbackCopy(p.prompt, "¡Plantilla de prompt copiada!"));
+    }
+
+    function fallbackCopy(text, successMsg) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); showToast(successMsg || "¡Copiado!"); }
+      catch (err) { showToast("No se pudo copiar. Copia manualmente."); }
+      document.body.removeChild(ta);
+    }
+
+    /* =========================== EXPORTAR / IMPORTAR =========================== */
+    function exportPrompts() {
+      if (!prompts || prompts.length === 0) {
+        showToast("No hay prompts para exportar.");
+        return;
+      }
+      const payload = {
+        app: "PromptVault",
+        version: 3,
+        exportedAt: new Date().toISOString(),
+        totalPrompts: prompts.length,
+        favorites: Array.from(favorites),
+        prompts: prompts
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `promptvault-backup-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast(`📦 Base exportada: ${prompts.length} prompts, ${favorites.size} favoritos.`);
+    }
+
+    function handleImportFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const raw = e.target.result;
+          const data = JSON.parse(raw);
+
+          let incomingPrompts = null;
+          let incomingFavs = [];
+
+          if (Array.isArray(data)) {
+            incomingPrompts = data;
+          } else if (data && Array.isArray(data.prompts)) {
+            incomingPrompts = data.prompts;
+            if (Array.isArray(data.favorites)) incomingFavs = data.favorites;
+          } else {
+            throw new Error("Formato JSON no reconocido");
+          }
+
+          if (!incomingPrompts || incomingPrompts.length === 0) {
+            throw new Error("El archivo no contiene prompts");
+          }
+
+          const normalized = incomingPrompts.map((p, idx) => {
+            if (!p || typeof p !== "object" || !p.prompt) {
+              throw new Error(`Prompt inválido en posición ${idx}`);
+            }
+            return {
+              id: p.id || ("imp-" + Date.now() + "-" + idx),
+              title: p.title || "Sin título",
+              category: p.category || "general",
+              difficulty: p.difficulty || "Intermedio",
+              description: p.description || "",
+              prompt: p.prompt,
+              author: p.author || "Importado",
+              lang: p.lang || detectLanguage(p.prompt || ""),
+              isNew: false
+            };
+          });
+
+          const ok = confirm(
+            `Vas a IMPORTAR ${normalized.length} prompts y ${incomingFavs.length} favoritos.\n\n` +
+            `Tu base actual (${prompts.length} prompts, ${favorites.size} favoritos) será REEMPLAZADA por completo.\n\n` +
+            `¿Continuar?`
+          );
+          if (!ok) { showToast("Importación cancelada."); return; }
+
+          prompts = normalized;
+          favorites = new Set(incomingFavs);
+
+          const saveResult = savePromptsToStorage();
+          saveFavoritesToStorage();
+          renderPrompts();
+          updateStats();
+
+          if (saveResult && saveResult.trimmed > 0) {
+            showToast(`⚠️ Importados ${normalized.length} prompts, pero localStorage estaba lleno y se eliminaron ${saveResult.trimmed}. Total actual: ${prompts.length}.`);
+          } else {
+            showToast(`✅ Importación completa: ${prompts.length} prompts, ${favorites.size} favoritos.`);
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("❌ Error al importar: " + (err.message || "archivo inválido"));
+        } finally {
+          event.target.value = "";
+        }
+      };
+      reader.onerror = () => {
+        showToast("❌ No se pudo leer el archivo.");
+        event.target.value = "";
+      };
+      reader.readAsText(file);
+    }
+
+    /* =========================== MODAL VARIABLES =========================== */
+    function openVariableModal(id, triggerEl) {
+      const p = prompts.find(x => x.id === id);
+      if (!p) return;
+      lastFocusedElement = triggerEl || document.activeElement;
+      activePrompt = p;
+      currentVariablesValues = {};
+      translatedText = null;
+      isTranslating = false;
+
+      document.getElementById("modal-title").innerText = p.title;
+      document.getElementById("modal-description").innerText = p.description;
+      const catBadge = document.getElementById("modal-category");
+      catBadge.innerText = p.category;
+      catBadge.className = `text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+        p.category === 'desarrollo' ? 'bg-cyan-950 text-cyan-400 border border-cyan-800' :
+        p.category === 'marketing' ? 'bg-rose-950 text-rose-400 border border-rose-800' :
+        p.category === 'productividad' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+        p.category === 'creatividad' ? 'bg-purple-950 text-purple-400 border border-purple-800' :
+        'bg-slate-800 text-slate-300 border border-slate-600'
+      }`;
+
+      const variables = extractVariables(p.prompt);
+      const inputsContainer = document.getElementById("modal-inputs");
+      const varsBox = document.getElementById("modal-variables-container");
+
+      if (variables.length === 0) {
+        varsBox.classList.add("hidden");
+      } else {
+        varsBox.classList.remove("hidden");
+        inputsContainer.innerHTML = variables.map(v => `
+          <div>
+            <label for="var-${escapeHtml(v)}" class="block text-xs font-mono font-medium text-slate-300 mb-1">[${escapeHtml(v)}]</label>
+            <input type="text" id="var-${escapeHtml(v)}" data-var="${escapeHtml(v)}" placeholder="Introduce un valor para [${escapeHtml(v)}]..." oninput="handleVariableInput(event)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500" />
+          </div>`).join("");
+      }
+
+      updateModalPreview();
+      resetTranslateButton();
+      const modal = document.getElementById("variable-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      modal.setAttribute("aria-hidden", "false");
+      lucide.createIcons();
+      requestAnimationFrame(() => {
+        const firstInput = inputsContainer.querySelector("input");
+        if (firstInput) firstInput.focus();
+      });
+    }
+
+    function handleVariableInput(e) {
+      currentVariablesValues[e.target.getAttribute("data-var")] = e.target.value;
+      translatedText = null;
+      updateModalPreview();
+      resetTranslateButton();
+    }
+
+    function getProcessedPromptText() {
+      if (!activePrompt) return "";
+      let processed = activePrompt.prompt;
+      for (const [key, val] of Object.entries(currentVariablesValues)) {
+        if (val && val.trim() !== "") {
+          const regex = new RegExp(`\\[${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]`, "g");
+          processed = processed.replace(regex, val.trim());
+        }
+      }
+      return processed;
+    }
+
+    function updateModalPreview() {
+      const previewEl = document.getElementById("modal-preview");
+      const indicator = document.getElementById("translation-indicator");
+      const hint = document.getElementById("preview-hint");
+
+      if (translatedText !== null) {
+        previewEl.textContent = translatedText;
+        indicator.classList.remove("hidden");
+        hint.classList.add("hidden");
+      } else {
+        previewEl.textContent = getProcessedPromptText();
+        indicator.classList.add("hidden");
+        hint.classList.remove("hidden");
+      }
+    }
+
+    function resetModalInputs() {
+      currentVariablesValues = {};
+      translatedText = null;
+      document.querySelectorAll("#modal-inputs input").forEach(i => i.value = "");
+      resetTranslateButton();
+      updateModalPreview();
+      document.querySelector("#modal-inputs input")?.focus();
+    }
+
+    function copyProcessedPrompt() {
+      const text = translatedText !== null ? translatedText : getProcessedPromptText();
+      const label = translatedText !== null ? "¡Traducción copiada con éxito!" : "¡Prompt personalizado copiado con éxito!";
+      navigator.clipboard.writeText(text)
+        .then(() => { showToast(label); closeVariableModal(); })
+        .catch(() => { fallbackCopy(text, label); closeVariableModal(); });
+    }
+
+    function closeVariableModal() {
+      const modal = document.getElementById("variable-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      modal.setAttribute("aria-hidden", "true");
+      activePrompt = null;
+      translatedText = null;
+      isTranslating = false;
+      if (lastFocusedElement?.focus) lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+
+    /* =========================== TRADUCCIÓN =========================== */
+    function resetTranslateButton() {
+      const btn = document.getElementById("btn-translate");
+      if (!btn) return;
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="languages" class="w-4 h-4 text-emerald-400" aria-hidden="true"></i><span>Traducir al Español</span>';
+      lucide.createIcons();
+    }
+
+    function splitTextForTranslation(text, maxChars = 450) {
+      const chunks = [];
+      const paragraphs = text.split(/\n/);
+      let current = "";
+      for (const para of paragraphs) {
+        const candidate = current ? current + "\n" + para : para;
+        if (candidate.length > maxChars && current) {
+          chunks.push(current);
+          current = para;
+        } else {
+          current = candidate;
+        }
+        while (current.length > maxChars) {
+          const cut = current.lastIndexOf(" ", maxChars);
+          const idx = cut > 0 ? cut : maxChars;
+          chunks.push(current.slice(0, idx));
+          current = current.slice(idx).trimStart();
+        }
+      }
+      if (current) chunks.push(current);
+      return chunks;
+    }
+
+    async function translateChunk(text) {
+      if (!text.trim()) return text;
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|es`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (data.responseStatus !== 200 && data.responseStatus !== "200") {
+        throw new Error(data.responseDetails || "Error de la API");
+      }
+      let translated = data.responseData?.translatedText || text;
+      const txt = document.createElement("textarea");
+      txt.innerHTML = translated;
+      return txt.value;
+    }
+
+    async function translatePrompt() {
+      if (isTranslating || !activePrompt) return;
+
+      const originalText = getProcessedPromptText();
+      if (!originalText.trim()) {
+        showToast("No hay texto que traducir.");
+        return;
+      }
+
+      isTranslating = true;
+      const btn = document.getElementById("btn-translate");
+      const copyBtn = document.getElementById("btn-copy-processed");
+
+      btn.disabled = true;
+      copyBtn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin" aria-hidden="true"></i><span>Traduciendo...</span>';
+      copyBtn.classList.add("opacity-50", "cursor-not-allowed");
+      lucide.createIcons();
+
+      try {
+        const chunks = splitTextForTranslation(originalText, 450);
+        const translatedChunks = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin" aria-hidden="true"></i><span>Traduciendo ${i + 1}/${chunks.length}...</span>`;
+          lucide.createIcons();
+          try {
+            const t = await translateChunk(chunk);
+            translatedChunks.push(t);
+          } catch (err) {
+            console.warn("Fallo traduciendo trozo:", err);
+            translatedChunks.push(chunk);
+          }
+        }
+
+        translatedText = translatedChunks.join("\n");
+        updateModalPreview();
+        showToast("✅ Traducción completada. Revisa la vista previa.");
+        btn.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400" aria-hidden="true"></i><span>Traducido</span>';
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+        showToast("❌ Error al traducir: " + (err.message || "desconocido"));
+        resetTranslateButton();
+      } finally {
+        isTranslating = false;
+        copyBtn.disabled = false;
+        copyBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        setTimeout(() => {
+          if (!isTranslating && translatedText !== null) resetTranslateButton();
+        }, 3000);
+      }
+    }
+
+    /* =========================== MODAL CREAR =========================== */
+    function openNewPromptModal(triggerEl) {
+      lastFocusedElement = triggerEl || document.activeElement;
+      document.getElementById("new-prompt-form").reset();
+      const modal = document.getElementById("new-prompt-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      modal.setAttribute("aria-hidden", "false");
+      lucide.createIcons();
+      requestAnimationFrame(() => document.getElementById("new-title")?.focus());
+    }
+
+    function closeNewPromptModal() {
+      const modal = document.getElementById("new-prompt-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      modal.setAttribute("aria-hidden", "true");
+      if (lastFocusedElement?.focus) lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+
+    function handleCreatePrompt(e) {
+      e.preventDefault();
+      const title = document.getElementById("new-title").value.trim();
+      const category = document.getElementById("new-category").value;
+      const difficulty = document.getElementById("new-difficulty").value;
+      const description = document.getElementById("new-description").value.trim();
+      const body = document.getElementById("new-body").value.trim();
+
+      const newPrompt = {
+        id: "custom-" + (crypto?.randomUUID?.() || Date.now() + "-" + Math.random().toString(36).slice(2)),
+        title, category, difficulty, description,
+        prompt: body,
+        author: "Personal",
+        lang: detectLanguage(body)
+      };
+
+      prompts.unshift(newPrompt);
+      savePromptsToStorage();
+      renderPrompts();
+      updateStats();
+      closeNewPromptModal();
+      showToast("¡Nuevo prompt añadido a tu colección!");
+    }
+
+    /* =========================== CLASIFICACIÓN IA =========================== */
+    const AI_CATEGORIES = ["desarrollo", "marketing", "productividad", "creatividad", "general"];
+
+    async function getClassifier() {
+      if (classifierPipeline) return classifierPipeline;
+      showToast("🤖 Cargando modelo IA (~50 MB, solo la primera vez)...");
+      const loadPromise = (async () => {
+        const mod = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0");
+        mod.env.allowLocalModels = false;
+        return await mod.pipeline("zero-shot-classification", "Xenova/mobilebert-uncased-mnli");
+      })();
+      classifierPipeline = await Promise.race([
+        loadPromise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout cargando modelo")), 90000))
+      ]);
+      return classifierPipeline;
+    }
+
+    async function classifyPromptWithAI(act, promptBody) {
+      const classifier = await getClassifier();
+      const text = `${act}. ${promptBody}`.slice(0, 512);
+      const result = await classifier(text, AI_CATEGORIES);
+      const topCategory = result.labels[0];
+      const confidence = result.scores[0];
+      return confidence > 0.35 ? topCategory : "general";
+    }
+
+    function classifyPromptByKeywords(act, promptBody) {
+      const text = (act + " " + promptBody).toLowerCase();
+      const KEYWORDS = {
+        desarrollo: ["developer", "programmer", "code", "coding", "sql", "python", "javascript", "linux", "devops", "engineer", "architect", "debug"],
+        marketing: ["marketer", "seo", "copywriter", "advertis", "social media", "content", "sales", "brand", "growth"],
+        productividad: ["productivity", "manager", "planner", "organizer", "assistant", "coach", "tutor", "teacher", "resume", "interview"],
+        creatividad: ["writer", "poet", "novelist", "screenwriter", "storyteller", "artist", "designer", "musician", "composer", "creative", "comedian"]
+      };
+      for (const [cat, kws] of Object.entries(KEYWORDS)) {
+        if (kws.some(k => text.includes(k))) return cat;
+      }
+      return "general";
+    }
+
+    /* =========================== CSV PARSER =========================== */
+    function parseCSV(csvText) {
+      const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== "");
+      if (lines.length < 2) return [];
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      const actIdx = headers.indexOf("act");
+      const promptIdx = headers.indexOf("prompt");
+      const forDevsIdx = headers.indexOf("for_devs");
+      if (actIdx === -1 || promptIdx === -1) return [];
+      const results = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCSVLine(lines[i]);
+        const act = (cols[actIdx] || "").trim();
+        const prompt = (cols[promptIdx] || "").trim();
+        if (!act || !prompt) continue;
+        results.push({ act, prompt, forDevs: cols[forDevsIdx] === "TRUE" });
+      }
+      return results;
+    }
+
+    function parseCSVLine(line) {
+      const cols = [];
+      let cur = "", inQuotes = false;
+      for (let j = 0; j < line.length; j++) {
+        const ch = line[j];
+        if (ch === '"') {
+          if (inQuotes && line[j + 1] === '"') { cur += '"'; j++; }
+          else inQuotes = !inQuotes;
+        } else if (ch === "," && !inQuotes) {
+          cols.push(cur); cur = "";
+        } else cur += ch;
+      }
+      cols.push(cur);
+      return cols;
+    }
+
+    function hashString(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h) + str.charCodeAt(i);
+        h |= 0;
+      }
+      return Math.abs(h).toString(36);
+    }
+
+    /* =========================== SINCRONIZACIÓN =========================== */
+    async function syncNewPrompts() {
+      if (isSyncing) return;
+
+      const input = prompt(
+        `¿Cuántos prompts nuevos quieres importar como máximo?\n\nOpciones sugeridas: 50, 100, 250, 500\n\n(El CSV de prompts.chat contiene ~45.000 prompts.)`,
+        String(syncMaxItems)
+      );
+      if (input === null) return;
+      const parsed = parseInt(input, 10);
+      if (isNaN(parsed) || parsed <= 0) { showToast("Cantidad inválida."); return; }
+      syncMaxItems = Math.min(parsed, 2000);
+
+      isSyncing = true;
+      syncCancelled = false;
+      const btn = document.getElementById("btn-sync");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Descargando CSV...</span>';
+        lucide.createIcons();
+      }
+
+      let cancelBtn = document.getElementById("btn-cancel-sync");
+      if (!cancelBtn) {
+        cancelBtn = document.createElement("button");
+        cancelBtn.id = "btn-cancel-sync";
+        cancelBtn.className = "fixed bottom-24 right-6 z-50 bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl";
+        cancelBtn.innerText = "✕ Cancelar sincronización";
+        cancelBtn.onclick = () => { syncCancelled = true; showToast("Cancelando..."); };
+        document.body.appendChild(cancelBtn);
+      }
+      cancelBtn.classList.remove("hidden");
+
+      try {
+        const res = await fetch("https://prompts.chat/prompts.csv", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const csvText = await res.text();
+        const remotePrompts = parseCSV(csvText);
+
+        if (remotePrompts.length === 0) {
+          showToast("⚠️ CSV vacío o no interpretable.");
+          return;
+        }
+
+        const existingTitles = new Set(prompts.map(p => (p.title || "").toLowerCase()));
+
+        // Filtrado 1: por título no existente
+        let candidates = remotePrompts.filter(rp => !existingTitles.has(rp.act.toLowerCase()));
+
+        // Filtrado 2: descartar prompts con cuerpo < MIN_WORDS_ON_SYNC palabras
+        // ⚠️ IMPORTANTE: countWords se aplica SOLO sobre rp.prompt (cuerpo), NO sobre rp.act (título)
+        const tooShort = [];
+        const validCandidates = [];
+        for (const rp of candidates) {
+          const wordsInBody = countWords(rp.prompt);
+          if (wordsInBody < MIN_WORDS_ON_SYNC) {
+            tooShort.push(rp);
+          } else {
+            validCandidates.push(rp);
+          }
+        }
+
+        if (validCandidates.length === 0) {
+          showToast(`Sin novedades válidas. Descartados ${tooShort.length} por tener <${MIN_WORDS_ON_SYNC} palabras en el cuerpo.`);
+          return;
+        }
+
+        const toProcess = validCandidates.slice(0, syncMaxItems);
+        const total = toProcess.length;
+        showToast(`📥 Procesando ${total} de ${validCandidates.length} válidos (${tooShort.length} descartados por <${MIN_WORDS_ON_SYNC} palabras).`);
+
+        const newOnes = [];
+        const createdCategories = new Set();
+        let aiFailures = 0, aiSuccesses = 0;
+
+        for (let i = 0; i < toProcess.length; i++) {
+          if (syncCancelled) {
+            showToast(`⏹ Cancelado. Se añadirán ${newOnes.length} procesados hasta ahora.`);
+            break;
+          }
+
+          const rp = toProcess[i];
+
+          if (i % 5 === 0 && btn) {
+            const pct = Math.round(((i + 1) / total) * 100);
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>${i + 1}/${total} (${pct}%)</span>`;
+            lucide.createIcons();
+          }
+
+          let category;
+          try {
+            category = await Promise.race([
+              classifyPromptWithAI(rp.act, rp.prompt),
+              new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500))
+            ]);
+            aiSuccesses++;
+          } catch (e) {
+            category = classifyPromptByKeywords(rp.act, rp.prompt);
+            aiFailures++;
+            if (aiFailures >= 5 && aiSuccesses === 0) {
+              console.warn("IA no disponible. Cambiando a modo palabras clave.");
+              classifierPipeline = null;
+              const remaining = toProcess.slice(i);
+              for (const r of remaining) {
+                if (syncCancelled) break;
+                // Segunda barrera: aunque venga en la lista, verificamos de nuevo el conteo
+                if (countWords(r.prompt) < MIN_WORDS_ON_SYNC) continue;
+                const cat = classifyPromptByKeywords(r.act, r.prompt);
+                if (cat === "general") createdCategories.add("general");
+                const lang = detectLanguage(r.prompt);
+                newOnes.push({
+                  id: "pc-" + hashString(r.act + "|" + r.prompt.slice(0, 80)),
+                  title: r.act, category: cat,
+                  difficulty: r.forDevs ? "Avanzado" : "Intermedio",
+                  description: `Importado de prompts.chat · ${lang === "es" ? "Español" : "Inglés"}`,
+                  prompt: r.prompt, author: "prompts.chat", lang, isNew: true
+                });
+              }
+              break;
+            }
+          }
+
+          if (category === "general") createdCategories.add("general");
+          const lang = detectLanguage(rp.prompt);
+          newOnes.push({
+            id: "pc-" + hashString(rp.act + "|" + rp.prompt.slice(0, 80)),
+            title: rp.act, category,
+            difficulty: rp.forDevs ? "Avanzado" : "Intermedio",
+            description: `Importado de prompts.chat · ${lang === "es" ? "Español" : "Inglés"}`,
+            prompt: rp.prompt, author: "prompts.chat", lang, isNew: true
+          });
+        }
+
+        if (newOnes.length === 0) {
+          showToast(`No se añadió ningún prompt. Descartados ${tooShort.length} por <${MIN_WORDS_ON_SYNC} palabras.`);
+          return;
+        }
+
+        prompts.unshift(...newOnes);
+        const saveResult = savePromptsToStorage();
+        renderPrompts();
+        updateStats();
+
+        const catMsg = createdCategories.size > 0 ? ` Categoría nueva: "${[...createdCategories].join(", ")}".` : "";
+        const modeMsg = aiSuccesses > 0 ? "con IA" : "por palabras clave";
+        const shortMsg = tooShort.length > 0 ? ` Descartados ${tooShort.length} con <${MIN_WORDS_ON_SYNC} palabras en el cuerpo.` : "";
+
+        if (saveResult.trimmed > 0) {
+          showToast(`⚠️ Se añadieron ${newOnes.length} prompts (${modeMsg}).${shortMsg} localStorage lleno: se eliminaron ${saveResult.trimmed} antiguos. Total actual: ${prompts.length}.${catMsg}`);
+        } else {
+          showToast(`✅ ${newOnes.length} prompts añadidos (${modeMsg}).${shortMsg} Total: ${prompts.length}.${catMsg}`);
+        }
+
+        scheduleNewFlagCleanup();
+      } catch (err) {
+        console.error(err);
+        let msg = err.message || "desconocido";
+        if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed")) {
+          msg = "CORS bloqueado. Abre la app con servidor local: python3 -m http.server";
+        }
+        showToast("❌ " + msg);
+      } finally {
+        isSyncing = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4"></i><span>Control Nuevos</span>';
+          lucide.createIcons();
+        }
+        const cb = document.getElementById("btn-cancel-sync");
+        if (cb) cb.classList.add("hidden");
+      }
+    }
+
+    function scheduleNewFlagCleanup() {
+      setTimeout(() => {
+        let changed = false;
+        prompts.forEach(p => {
+          if (p.isNew) { p.isNew = false; changed = true; }
+        });
+        if (changed) {
+          savePromptsToStorage();
+          renderPrompts();
+          updateStats();
+        }
+      }, 30000);
+    }
+
+    window.addEventListener("DOMContentLoaded", initApp);
+  </script>
+</body>
+</html>
