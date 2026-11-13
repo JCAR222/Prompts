@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptVault • Biblioteca de @sergioprompts & Herramientas IA</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .glass {
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-brand-500 selection:text-white">
+
+  <!-- INPUT OCULTO PARA IMPORTAR ARCHIVOS JSON -->
+  <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="handleImportFile(event)">
+
+  <!-- TOAST NOTIFICACIONES -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl border border-emerald-400">
+    <svg class="w-5 h-5 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+    <span id="toast-message" class="text-sm font-bold">Acción completada</span>
+  </div>
+
+  <!-- CABECERA SUPERIOR -->
+  <header class="border-b border-slate-800 bg-slate-900/95 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
+      
+      <!-- LOGO -->
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-bold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
+        <div>
+          <h1 class="font-black text-xl text-white tracking-tight flex items-center gap-2">
+            PromptVault 
+            <span class="text-[10px] bg-brand-900 text-brand-300 border border-brand-500/40 px-2 py-0.5 rounded-full font-mono">@sergioprompts</span>
+          </h1>
+          <p class="text-xs text-slate-400">Biblioteca y Gestor Interactivo de Prompts</p>
+        </div>
+      </div>
+
+      <!-- BOTONES DE ACCIÓN: IMPORTAR, EXPORTAR Y NUEVO PROMPT -->
+      <div class="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+        
+        <!-- BOTÓN IMPORTAR JSON -->
+        <button 
+          onclick="triggerImport()" 
+          title="Importar colección de prompts o herramientas desde un archivo .json"
+          class="flex items-center gap-2 text-xs font-bold bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/60 px-3.5 py-2 rounded-xl shadow transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+          <span>Importar JSON</span>
+        </button>
+
+        <!-- BOTÓN EXPORTAR BACKUP -->
+        <button 
+          onclick="exportData()" 
+          title="Descargar copia de seguridad en archivo .json"
+          class="flex items-center gap-2 text-xs font-bold bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-500/60 px-3.5 py-2 rounded-xl shadow transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          <span>Exportar Backup</span>
+        </button>
+
+        <!-- BOTÓN NUEVO PROMPT -->
+        <button 
+          onclick="openNewPromptModal()" 
+          class="flex items-center gap-2 text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white px-3.5 py-2 rounded-xl shadow-lg transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+          <span>Nuevo Prompt</span>
+        </button>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+    <!-- =========================================================================
+         BOX DESPLEGABLE: 1. HERRAMIENTAS GRATUITAS (INVESTIGACIÓN DIARIA IA)
+         ========================================================================= -->
+    <section class="transition-all duration-200">
+      <div class="glass border-2 border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-2xl relative bg-gradient-to-b from-slate-900/90 via-slate-900/80 to-slate-950">
+        
+        <!-- Cabecera del Box con botón de desplegar/plegar -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-3">
+            <button 
+              onclick="toggleToolsBox()" 
+              id="btn-toggle-tools"
+              class="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-sm hover:bg-emerald-900 transition-all cursor-pointer">
+              ▼
+            </button>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 uppercase tracking-wide">
+                  Clasificación 1
+                </span>
+                <h2 class="text-base font-bold text-white">
+                  Herramientas Gratuitas (Novedades IA)
+                </h2>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Búsqueda e investigación diaria de software sin coste. Fíjalas o añádelas a tu lista.</p>
+            </div>
+          </div>
+
+          <!-- Filtros de Herramientas -->
+          <div class="flex flex-wrap items-center gap-2" id="tools-actions-bar">
+            <button onclick="setToolFilter('all')" id="btn-tool-all" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition-all cursor-pointer">
+              Todas (<span id="count-tools-all">0</span>)
+            </button>
+            <button onclick="setToolFilter('pinned')" id="btn-tool-pinned" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all cursor-pointer flex items-center gap-1">
+              <span>📌 Fijadas</span> (<span id="count-tools-pinned">0</span>)
+            </button>
+            <button onclick="setToolFilter('saved')" id="btn-tool-saved" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all cursor-pointer flex items-center gap-1">
+              <span>⭐ Mi Lista</span> (<span id="count-tools-saved">0</span>)
+            </button>
+            <button onclick="openNewToolModal()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/50 transition-all cursor-pointer flex items-center gap-1 shadow">
+              <span>➕ Añadir Herramienta</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contenido desplegable de Herramientas -->
+        <div id="tools-collapsible-content" class="transition-all duration-300 overflow-hidden pt-4">
+          <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          
+          <div id="tools-empty-state" class="hidden flex-col items-center justify-center py-6 text-center">
+            <p class="text-xs text-slate-400">No hay herramientas en esta selección.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         BIBLIOTECA PRINCIPAL DE PROMPTS @SERGIOPROMPTS (SIEMPRE VISIBLE)
+         ========================================================================= -->
+    <section class="flex flex-col gap-5">
+      
+      <!-- BARRA DE BÚSQUEDA Y FILTROS -->
+      <div class="glass p-5 rounded-2xl flex flex-col gap-4 border border-slate-800 shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span>📚 Biblioteca de Prompts</span>
+              <span class="text-xs font-mono text-brand-300 bg-brand-900/60 px-2 py-0.5 rounded border border-brand-500/30">@sergioprompts</span>
+            </h3>
+            <p class="text-xs text-slate-400">Prompts listos para usar en desarrollo, marketing, productividad y creatividad.</p>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            <button 
+              onclick="restoreDefaultPrompts()" 
+              title="Restablecer la colección oficial si has borrado o modificado prompts"
+              class="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              <span>Restaurar Originales</span>
+            </button>
+            <span class="text-xs text-slate-400 font-mono">
+              Mostrando: <strong id="stat-showing-prompts" class="text-brand-400 font-bold">0</strong>
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-3">
+          <!-- Buscador en tiempo real -->
+          <div class="relative flex-1">
+            <input 
+              type="text" 
+              id="search-input" 
+              placeholder="Buscar por título, contenido o variables (ej: [LENGUAJE], [AUDIENCIA])..." 
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-10 py-2.5 text-sm focus:outline-none focus:border-brand-500 text-slate-100 placeholder-slate-500"
+            />
+            <button id="clear-search" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white font-bold cursor-pointer">✕</button>
+          </div>
+
+          <!-- Filtro Dificultad -->
+          <select id="filter-difficulty" onchange="applyFilters()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer">
+            <option value="all">Todas las dificultades</option>
+            <option value="Principiante">Principiante (Verde)</option>
+            <option value="Intermedio">Intermedio (Ámbar)</option>
+            <option value="Avanzado">Avanzado (Rojo)</option>
+          </select>
+
+          <!-- Toggle Solo Favoritos -->
+          <button id="btn-fav-filter" onclick="toggleFavFilter()" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:text-white text-sm font-semibold transition-colors cursor-pointer">
+            <span>⭐</span>
+            <span id="fav-btn-label">Solo Favoritos</span>
+          </button>
+        </div>
+
+        <!-- Categorías Pills -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-1 border-t border-slate-800" id="category-pills"></div>
+      </div>
+
+      <!-- CUADRÍCULA DE PROMPTS (CARGADA AUTOMÁTICAMENTE) -->
+      <div id="prompts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+      <!-- ESTADO VACÍO -->
+      <div id="empty-state" class="hidden flex-col items-center justify-center py-16 text-center glass rounded-2xl border border-slate-800 p-8">
+        <p class="text-base font-bold text-slate-200">No se encontraron prompts con los filtros actuales.</p>
+        <p class="text-xs text-slate-400 mt-1 mb-4">Puedes restablecer los filtros o recargar los prompts oficiales:</p>
+        <button onclick="restoreDefaultPrompts()" class="text-xs bg-brand-600 hover:bg-brand-500 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg cursor-pointer">
+          Restablecer Colección de @sergioprompts
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       MODAL 1: PERSONALIZAR VARIABLES DEL PROMPT
+       ========================================================================= -->
+  <div id="variable-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="glass max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+        <div>
+          <span id="modal-category" class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider"></span>
+          <h2 id="modal-title" class="text-base font-bold text-white mt-1">Personalizar Prompt</h2>
+        </div>
+        <button onclick="closeVariableModal()" class="text-slate-400 hover:text-white font-bold p-1 cursor-pointer">✕</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4 text-xs">
+        <p id="modal-description" class="text-slate-400 leading-relaxed"></p>
+        
+        <div id="modal-variables-container" class="space-y-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+          <h4 class="text-xs font-bold text-brand-400 uppercase tracking-wider">Variables Detectadas:</h4>
+          <div id="modal-inputs" class="space-y-2.5"></div>
+        </div>
+
+        <div>
+          <span class="text-xs font-bold text-slate-300 block mb-1 uppercase tracking-wider">Vista previa en tiempo real:</span>
+          <div id="modal-preview" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-slate-200 whitespace-pre-wrap leading-relaxed max-h-52 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between">
+        <button onclick="resetModalInputs()" class="text-xs text-slate-400 hover:text-white font-semibold cursor-pointer">Restablecer valores</button>
+        <button onclick="copyProcessedPrompt()" class="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition-colors cursor-pointer">
+          <span>📋 Copiar Prompt Listo</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 2: AÑADIR NUEVO PROMPT
+       ========================================================================= -->
+  <div id="new-prompt-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="glass max-w-xl w-full rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+        <h2 class="text-base font-bold text-white">➕ Añadir Nuevo Prompt</h2>
+        <button onclick="closeNewPromptModal()" class="text-slate-400 hover:text-white font-bold cursor-pointer">✕</button>
+      </div>
+
+      <form id="new-prompt-form" onsubmit="handleCreatePrompt(event)" class="p-5 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Título del Prompt</label>
+          <input type="text" id="new-title" required placeholder="Ej: Generador de Ganchos para Twitter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Categoría</label>
+            <select id="new-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500">
+              <option value="desarrollo">Desarrollo</option>
+              <option value="marketing">Marketing</option>
+              <option value="productividad">Productividad</option>
+              <option value="creatividad">Creatividad</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Dificultad</label>
+            <select id="new-difficulty" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500">
+              <option value="Principiante">Principiante</option>
+              <option value="Intermedio">Intermedio</option>
+              <option value="Avanzado">Avanzado</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Descripción Breve</label>
+          <input type="text" id="new-description" required placeholder="Para qué sirve..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500" />
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Cuerpo del Prompt (Usa corchetes [VARIABLE])</label>
+          <textarea id="new-body" rows="5" required placeholder="Actúa como [ROL] y redacta [OBJETIVO] considerando [CONTEXTO]..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono focus:outline-none focus:border-brand-500"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeNewPromptModal()" class="px-3 py-1.5 text-slate-400 hover:text-white cursor-pointer">Cancelar</button>
+          <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-1.5 rounded-lg cursor-pointer">Guardar Prompt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 3: REGISTRAR NUEVA HERRAMIENTA GRATUITA
+       ========================================================================= -->
+  <div id="new-tool-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="glass max-w-md w-full rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+        <h2 class="text-sm font-bold text-white">➕ Añadir Herramienta Gratuita</h2>
+        <button onclick="closeNewToolModal()" class="text-slate-400 hover:text-white font-bold cursor-pointer">✕</button>
+      </div>
+
+      <form id="new-tool-form" onsubmit="handleCreateTool(event)" class="p-5 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Nombre</label>
+          <input type="text" id="new-tool-name" required placeholder="Ej: GitReverse, Cal.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Tipo de Licencia</label>
+            <select id="new-tool-badge" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+              <option value="100% Gratis">100% Gratis</option>
+              <option value="Open Source">Open Source</option>
+              <option value="Freemium Potente">Freemium Potente</option>
+              <option value="Tier Gratuito">Tier Gratuito</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Enlace Web Oficial</label>
+            <input type="url" id="new-tool-url" required placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Explicación Breve</label>
+          <textarea id="new-tool-desc" rows="3" required placeholder="Qué hace y por qué es útil..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeNewToolModal()" class="px-3 py-1.5 text-slate-400 hover:text-white cursor-pointer">Cancelar</button>
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded-lg shadow cursor-pointer">Guardar Herramienta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT COMPLETO, VERIFICADO Y SIN DEPENDENCIAS FALLIDAS -->
+  <script>
+    /* =========================================================================
+       16 PROMPTS COMPLETOS Y OFICIALES DE @SERGIOPROMPTS
+       ========================================================================= */
+    const INITIAL_PROMPTS = [
+      // DESARROLLO
+      {
+        id: "sp-dev-01",
+        title: "Refactorizador de Código Limpio y Patrones SOLID",
+        category: "desarrollo",
+        difficulty: "Avanzado",
+        description: "Transforma código complejo en modular, tipado y optimizado bajo principios SOLID.",
+        prompt: "Actúa como un Ingeniero de Software Principal y Arquitecto Senior en [LENGUAJE].\n\nTu misión es refactorizar el siguiente código garantizando:\n1. Principios SOLID y Clean Code (funciones de responsabilidad única).\n2. Reducción de complejidad ciclomática y eliminación de código redundante.\n3. Tipado estricto y manejo idiomático de errores.\n\nCódigo original:\n```[LENGUAJE]\n[CODIGO_ORIGINAL]\n```\n\nFormato de respuesta:\n- Análisis de 3 puntos críticos a mejorar.\n- Código refactorizado documentado.\n- Explicación de los patrones aplicados.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-dev-02",
+        title: "Generador de Tests Unitarios (TDD Edge Cases)",
+        category: "desarrollo",
+        difficulty: "Intermedio",
+        description: "Crea tests automatizados cubriendo casos límite, inyecciones inesperadas y excepciones.",
+        prompt: "Actúa como un Lead QA Automation Engineer en [FRAMEWORK_TEST] (Jest, PyTest, JUnit).\n\nEscribe una batería completa de pruebas unitarias para la siguiente función/módulo:\n```\n[CODIGO_O_FUNCION]\n```\n\nRequisitos: Happy Path, Edge Cases (nulos, vacíos, límites numéricos), manejo de excepciones asíncronas y mocks para APIs externas.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-dev-03",
+        title: "Auditor de Seguridad y Vulnerabilidades OWASP",
+        category: "desarrollo",
+        difficulty: "Avanzado",
+        description: "Analiza código en busca de fallos OWASP Top 10, inyecciones SQL, XSS y fugas.",
+        prompt: "Actúa como un Auditor de Ciberseguridad AppSec certificado.\n\nAnaliza rigurosamente el siguiente código en busca de vulnerabilidades:\n```\n[CODIGO_A_AUDITAR]\n```\n\nEntrega tu reporte en una tabla con: Vulnerabilidad detectada | Severidad (Baja/Media/Alta/Crítica) | Vector de Ataque | Solución recomendada.\nFinaliza mostrando el bloque de código corregido y sanitizado.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-dev-04",
+        title: "Explicador de Conceptos Complejos (Técnica Feynman)",
+        category: "desarrollo",
+        difficulty: "Principiante",
+        description: "Explica conceptos técnicos difíciles usando analogías cotidianas accesibles.",
+        prompt: "Actúa como el mejor docente de computación, especialista en la Técnica Feynman.\n\nExplica el concepto: \"[CONCEPTO_TECNICO]\"\nAudiencia: [NIVEL_AUDIENCIA] (ej: Principiante sin conocimientos previos).\n\nEstructura:\n1. Definición en una frase memorable sin jerga técnica.\n2. Analogía del mundo real.\n3. Ejemplo práctico mínimo.\n4. El error conceptual más común que todos cometen al aprenderlo.",
+        author: "@sergioprompts"
+      },
+
+      // MARKETING
+      {
+        id: "sp-mkt-01",
+        title: "Landing Page Copywriting con Framework P.A.S. + A.I.D.A.",
+        category: "marketing",
+        difficulty: "Avanzado",
+        description: "Redacción persuasion-first orientada a conversión para páginas de ventas de SaaS o productos.",
+        prompt: "Actúa como un Copywriter de Respuesta Directa de clase mundial.\n\nRedacta los textos clave para la Landing Page de:\n- Producto/Servicio: [PRODUCTO_SERVICIO]\n- Audiencia Objetivo: [PUBLICO_OBJETIVO]\n- Gran Promesa: [PROMESA_VALOR]\n- Objeción Principal: [OBJECION_PRINCIPAL]\n\nEstructura:\n1. HERO: H1 magnético, H2 aclaratorio y botón CTA.\n2. P.A.S.: Problema visceral, Agitación de costes y Solución puente.\n3. 3 Balas de fascinación orientadas a transformación.\n4. FAQ Anti-Objeción (3 preguntas clave resueltas).",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-mkt-02",
+        title: "Fábrica de Ganchos (Hooks) Virales para Redes Sociales",
+        category: "marketing",
+        difficulty: "Principiante",
+        description: "Genera ganchos hipnóticos basados en curiosidad y contraste para Twitter/X, Reels o LinkedIn.",
+        prompt: "Actúa como un estratega de contenido viral y ghostwriter de cuentas de alto impacto.\n\nTema del contenido: [TEMA_CONTENIDO]\nEmoción dominante a evocar: [EMOCION]\n\nGenera 10 ganchos de primera línea clasificados por fórmulas:\n- 2 Bucle de Curiosidad (Open Loop).\n- 2 Declaración Contraintuitiva.\n- 2 Transformación \"De X a Y\".\n- 2 Lista Curada de Alto Valor.\n- 2 Errores costosos que el 99% comete.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-mkt-03",
+        title: "Secuencia de Email Nurturing (Cadencia de 4 Días)",
+        category: "marketing",
+        difficulty: "Intermedio",
+        description: "Secuencia automatizada para convertir suscriptores fríos en compradores calificados.",
+        prompt: "Actúa como un Especialista en Email Marketing y Embudos Automatizados.\n\nCrea una secuencia de 4 emails diarios para dar la bienvenida a quien acaba de descargar: [LEAD_MAGNET]\nEl producto final a vender al final es: [PRODUCTO_FINAL] (Precio: [PRECIO])\n\nDesarrolla cada email con Asunto (A/B testing), Cuerpo y Llamada a la Acción:\n- Email 1: Entrega del recurso + micro-historia.\n- Email 2: La verdad incómoda (romper creencia errónea).\n- Email 3: Caso de estudio o demostración práctica.\n- Email 4: Apertura de oferta con urgencia ética.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-mkt-04",
+        title: "Investigación Profunda de Buyer Persona / Avatar",
+        category: "marketing",
+        difficulty: "Intermedio",
+        description: "Radiografía psicológica: dolores nocturnos, vocabulario exacto y detonantes de compra.",
+        prompt: "Actúa como un Psicólogo del Consumidor e Investigador de Mercado.\n\nCrea un perfil profundo para:\nNicho: [NICHO_MERCADO]\nProblema que resuelves: [PROBLEMA_CENTRAL]\n\nDetalla:\n1. Dolores Viscerales (lo que no le deja dormir a las 3:00 AM).\n2. Sueño Secreto a 1 año vista.\n3. 5 Frases literales que diría al quejarse en foros.\n4. El disparador de urgencia que le hace comprar hoy sin postergar.",
+        author: "@sergioprompts"
+      },
+
+      // PRODUCTIVIDAD
+      {
+        id: "sp-prod-01",
+        title: "Resumidor Ejecutivo y Extractor de Decisiones Clave",
+        category: "productividad",
+        difficulty: "Principiante",
+        description: "Condensa transcripciones, minutas de reunión o PDFs largos en 2 minutos de lectura.",
+        prompt: "Actúa como el Jefe de Gabinete (Chief of Staff) de un Director Ejecutivo (CEO).\n\nProcesa el siguiente texto/reunión y entrégame un Resumen Ejecutivo:\n```\n[TEXTO_O_TRANSCRIPCION]\n```\n\nFormato exacto:\n1. TL;DR (3 viñetas concisas).\n2. Decisiones Tomadas formalmente.\n3. Matriz de Acción: Quién | Tarea específica | Plazo estimado.\n4. Riesgos o Bloqueos detectados.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-prod-02",
+        title: "Planificador de Jornada (Time-Blocking Eisenhower)",
+        category: "productividad",
+        difficulty: "Intermedio",
+        description: "Organiza listas de tareas pendientes en bloques hiperenfocados de trabajo profundo.",
+        prompt: "Actúa como un Coach de Productividad y Especialista en Deep Work.\n\nTareas pendientes:\n```\n[LISTA_DE_TAREAS]\n```\nHoras totales disponibles: [HORAS_DISPONIBLES] horas.\n\n1. Clasifica con la Matriz Eisenhower.\n2. Identifica el 20% de tareas con el 80% del impacto.\n3. Diseña mi agenda horaria en bloques de 90 min de foco total.\n4. Indica qué tareas debo eliminar o delegar hoy.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-prod-03",
+        title: "Redactor de Correos Difíciles y Negociación Asertiva",
+        category: "productividad",
+        difficulty: "Intermedio",
+        description: "Redacta respuestas diplomáticas pero firmes para fijar límites con clientes o superiores.",
+        prompt: "Actúa como un Negociador Diplomático y Experto en Comunicación Ejecutiva Asertiva.\n\nNecesito redactar un correo electrónico para responder a la siguiente situación:\n- Destinatario: [DESTINATARIO] (ej: cliente exigente, jefe, proveedor)\n- Situación incómoda o petición inapropiada: [SITUACION_CONFLICTIVA]\n- Mi objetivo real (lo que debo rechazar o acordar): [OBJETIVO_DESEADO]\n\nRequisitos: Tono profesional, cordial, firme e innegociable en los límites, sin pedir disculpas innecesarias.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-prod-04",
+        title: "Acelerador de Aprendizaje 80/20 (Ultralearning)",
+        category: "productividad",
+        difficulty: "Avanzado",
+        description: "Crea una hoja de ruta ultra-condensada de 4 semanas para dominar cualquier habilidad nueva.",
+        prompt: "Actúa como un Experto en Andragogía y Técnicas de Ultralearning.\n\nQuiero aprender y ser competente en: [HABILIDAD_A_APRENDER]\nTiempo disponible: [HORAS_SEMANALES] horas por semana durante 4 semanas.\n\nDesarrolla:\n1. Desglose del 20% de fundamentos con el 80% del impacto práctico.\n2. Hoja de ruta en 4 semanas con un proyecto práctico final por semana.\n3. Los 3 mejores recursos sin coste.\n4. Un ejercicio diario deliberado para forzar retención activa (Active Recall).",
+        author: "@sergioprompts"
+      },
+
+      // CREATIVIDAD
+      {
+        id: "sp-crea-01",
+        title: "Storytelling con el Viaje del Héroe para Marcas",
+        category: "creatividad",
+        difficulty: "Intermedio",
+        description: "Transforma anécdotas o experiencias ordinarias en narrativas cautivadoras de marca personal.",
+        prompt: "Actúa como un Guionista de Cine y Maestro Narrador de Historias (Storyteller).\n\nExperiencia personal: \"[EXPERIENCIA_O_ANECDOTA]\"\nPúblico objetivo: [AUDIENCIA]\nMensaje clave: [MENSAJE_CLAVE]\n\nReescribe esta anécdota adaptándola al arco clásico:\n1. El Mundo Ordinario y la llamada a la aventura.\n2. El Abismo o Punto de Quiebre (duda o fracaso).\n3. La Revelación o Epifanía transformadora.\n4. El Retorno con el Elixir (lección práctica para el lector).",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-crea-02",
+        title: "Ingeniero de Prompts Fotográficos para Midjourney / FLUX",
+        category: "creatividad",
+        difficulty: "Principiante",
+        description: "Crea instrucciones hiperrealistas con iluminación de estudio, cámara, lente y estilo artístico.",
+        prompt: "Actúa como un Director de Fotografía Cinematográfica y Prompt Engineer experto en Midjourney v6 y Flux.1.\n\nQuiero generar una imagen de: [SUJETO_O_ESCENA]\nEstilo visual deseado: [ESTILO_VISUAL]\nAtmósfera o emoción: [ATMOSFERA]\n\nGenera 3 variantes de prompts en inglés listos para copiar:\n- Variante 1: Enfoque fotorreportaje realista (cámara, lente 50mm, iluminación natural).\n- Variante 2: Enfoque cinematográfico de película (iluminación volumétrica, aspect ratio --ar 16:9).\n- Variante 3: Enfoque artístico estilizado con texturas de alto detalle.",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-crea-03",
+        title: "Ideador Disruptivo de Negocios y Productos (Método SCAMPER)",
+        category: "creatividad",
+        difficulty: "Avanzado",
+        description: "Aplica pensamiento lateral para reinventar un producto convencional en una propuesta innovadora.",
+        prompt: "Actúa como un Consultor de Innovación Radical y Design Thinking.\n\nAplica la técnica S.C.A.M.P.E.R. al siguiente producto/servicio tradicional: \"[PRODUCTO_O_INDUSTRIA_ACTUAL]\"\n\nProporciona al menos una idea disruptiva y aplicable para cada eje:\n- S (Sustituir) | C (Combinar) | A (Adaptar) | M (Modificar) | P (Poner en otros usos) | E (Eliminar) | R (Reorganizar).\nConcluye seleccionando la idea más viable con su propuesta de valor única (UVP).",
+        author: "@sergioprompts"
+      },
+      {
+        id: "sp-crea-04",
+        title: "Generador de Metáforas y Analogías Memorables",
+        category: "creatividad",
+        difficulty: "Principiante",
+        description: "Diseña metáforas visuales para hacer comprensible cualquier idea abstracta.",
+        prompt: "Actúa como un Escritor Creativo y Asesor de Charlas TED.\n\nIdea abstracta a explicar: \"[IDEA_O_CONCEPTO]\"\n\nGenera 4 analogías memorables en diferentes campos:\n1. Naturaleza / Biología.\n2. Gastronomía.\n3. Arquitectura o Mecánica.\n4. Videojuegos o Deportes.\n\nCada analogía debe explicarse en 3 líneas con un remate visual contundente.",
+        author: "@sergioprompts"
+      }
+    ];
+
+    /* =========================================================================
+       HERRAMIENTAS GRATUITAS (ENLACES VERIFICADOS SIN ERRORES 404)
+       ========================================================================= */
+    const INITIAL_TOOLS = [
+      {
+        id: "tool-gitreverse",
+        name: "GitReverse",
+        url: "https://gitreverse.com",
+        badge: "Open Source / Gratis",
+        description: "Analiza repositorios de GitHub con IA para generar el prompt original, diagramas y arquitectura inversa para vibe coding en Cursor o Claude Code.",
+        isPinned: true,
+        isSaved: true
+      },
+      {
+        id: "tool-cal",
+        name: "Cal.com",
+        url: "https://cal.com",
+        badge: "100% Gratis & Open Source",
+        description: "Alternativa abierta a Calendly con agentes de IA para agendamiento inteligente, gestión de zonas horarias automáticas y transcripción de citas.",
+        isPinned: true,
+        isSaved: false
+      },
+      {
+        id: "tool-rea",
+        name: "REA (Reverse Engineer Anything)",
+        url: "https://rea.tools",
+        badge: "Open Source",
+        description: "Servidor MCP y suite de ingeniería inversa que conecta agentes de IA (Antigravity, Cursor, Claude Code) para decompilar binarios, APKs y apps web.",
+        isPinned: false,
+        isSaved: true
+      },
+      {
+        id: "tool-bolt",
+        name: "Bolt.new",
+        url: "https://bolt.new",
+        badge: "Tier Gratuito",
+        description: "Entorno WebContainers en navegador impulsado por IA para prototipar, compilar y desplegar aplicaciones Full-Stack sin instalar dependencias locales.",
+        isPinned: false,
+        isSaved: false
+      },
+      {
+        id: "tool-notebooklm",
+        name: "Google NotebookLM",
+        url: "https://notebooklm.google.com",
+        badge: "100% Gratis",
+        description: "Sube PDFs, notas o enlaces para sintetizar conocimientos con citas exactas y generar conversaciones en podcast de audio con voces naturales.",
+        isPinned: false,
+        isSaved: false
+      }
+    ];
+
+    /* =========================================================================
+       ESTADO Y PERSISTENCIA (LOCALSTORAGE)
+       ========================================================================= */
+    const STORAGE_KEY_PROMPTS = "pv_prompts_core_v1";
+    const STORAGE_KEY_FAVS = "pv_favs_core_v1";
+    const STORAGE_KEY_TOOLS = "pv_tools_core_v1";
+
+    let prompts = [];
+    let favorites = new Set();
+    let tools = [];
+
+    let isToolsOpen = true;
+    let currentToolFilter = "all";
+    let currentCategory = "all";
+    let currentDifficulty = "all";
+    let onlyFavorites = false;
+    let searchQuery = "";
+
+    let activePrompt = null;
+    let currentVariablesValues = {};
+
+    /* =========================================================================
+       INICIALIZACIÓN AUTOMÁTICA
+       ========================================================================= */
+    function initApp() {
+      // 1. Cargar prompts (Si no hay o están corruptos, carga directamente los 16 oficiales)
+      const savedPrompts = localStorage.getItem(STORAGE_KEY_PROMPTS);
+      if (savedPrompts) {
+        try {
+          const parsed = JSON.parse(savedPrompts);
+          prompts = (Array.isArray(parsed) && parsed.length > 0) ? parsed : [...INITIAL_PROMPTS];
+        } catch(e) { prompts = [...INITIAL_PROMPTS]; }
+      } else {
+        prompts = [...INITIAL_PROMPTS];
+      }
+      savePromptsToStorage();
+
+      // 2. Cargar favoritos
+      const savedFavs = localStorage.getItem(STORAGE_KEY_FAVS);
+      if (savedFavs) {
+        try { favorites = new Set(JSON.parse(savedFavs)); } catch(e) { favorites = new Set(); }
+      }
+
+      // 3. Cargar herramientas
+      const savedTools = localStorage.getItem(STORAGE_KEY_TOOLS);
+      if (savedTools) {
+        try {
+          const parsedTools = JSON.parse(savedTools);
+          tools = (Array.isArray(parsedTools) && parsedTools.length > 0) ? parsedTools : [...INITIAL_TOOLS];
+        } catch(e) { tools = [...INITIAL_TOOLS]; }
+      } else {
+        tools = [...INITIAL_TOOLS];
+      }
+      saveToolsToStorage();
+
+      // 4. Renderizar inmediatamente todo en pantalla
+      renderCategoryPills();
+      setupSearchListener();
+      renderTools();
+      renderPrompts();
+    }
+
+    function saveToolsToStorage() { localStorage.setItem(STORAGE_KEY_TOOLS, JSON.stringify(tools)); }
+    function savePromptsToStorage() { localStorage.setItem(STORAGE_KEY_PROMPTS, JSON.stringify(prompts)); }
+    function saveFavoritesToStorage() { localStorage.setItem(STORAGE_KEY_FAVS, JSON.stringify(Array.from(favorites))); }
+
+    /* =========================================================================
+       RESTAURAR PROMPTS ORIGINALES
+       ========================================================================= */
+    function restoreDefaultPrompts() {
+      prompts = [...INITIAL_PROMPTS];
+      savePromptsToStorage();
+      currentCategory = "all";
+      currentDifficulty = "all";
+      onlyFavorites = false;
+      searchQuery = "";
+
+      const sInp = document.getElementById("search-input");
+      if (sInp) sInp.value = "";
+      const clearBtn = document.getElementById("clear-search");
+      if (clearBtn) clearBtn.classList.add("hidden");
+      const dSel = document.getElementById("filter-difficulty");
+      if (dSel) dSel.value = "all";
+
+      const fBtn = document.getElementById("btn-fav-filter");
+      const fLbl = document.getElementById("fav-btn-label");
+      if (fBtn && fLbl) {
+        fBtn.classList.remove("bg-amber-500/20", "border-amber-500", "text-amber-300");
+        fLbl.innerText = "Solo Favoritos";
+      }
+
+      renderCategoryPills();
+      renderPrompts();
+      showToast(`¡Colección de ${prompts.length} prompts restablecida!`);
+    }
+
+    /* =========================================================================
+       IMPORTAR Y EXPORTAR COMPLETO (.JSON)
+       ========================================================================= */
+    function exportData() {
+      const backup = {
+        app: "PromptVault",
+        version: "4.0",
+        exportDate: new Date().toISOString(),
+        prompts: prompts,
+        tools: tools,
+        favorites: Array.from(favorites)
+      };
+
+      const dataStr = JSON.stringify(backup, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `PromptVault_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast("¡Copia de seguridad exportada en JSON!");
+    }
+
+    function triggerImport() {
+      document.getElementById("import-file-input").click();
+    }
+
+    function handleImportFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+
+          // Si es un array directo de prompts
+          if (Array.isArray(data)) {
+            if (data.length > 0 && (data[0].prompt || data[0].title)) {
+              prompts = data;
+              savePromptsToStorage();
+            } else if (data.length > 0 && data[0].url) {
+              tools = data;
+              saveToolsToStorage();
+            }
+          } 
+          // Si es un objeto de backup completo
+          else if (typeof data === "object" && data !== null) {
+            if (Array.isArray(data.prompts)) {
+              prompts = data.prompts;
+              savePromptsToStorage();
+            }
+            if (Array.isArray(data.tools)) {
+              tools = data.tools;
+              saveToolsToStorage();
+            }
+            if (Array.isArray(data.favorites)) {
+              favorites = new Set(data.favorites);
+              saveFavoritesToStorage();
+            }
+          }
+
+          renderCategoryPills();
+          renderTools();
+          renderPrompts();
+          showToast("¡Datos importados con éxito!");
+        } catch(err) {
+          alert("Error al leer el archivo JSON: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    }
+
+    /* =========================================================================
+       BOX DESPLEGABLE: HERRAMIENTAS GRATUITAS
+       ========================================================================= */
+    function toggleToolsBox() {
+      isToolsOpen = !isToolsOpen;
+      const content = document.getElementById("tools-collapsible-content");
+      const btn = document.getElementById("btn-toggle-tools");
+      const actionsBar = document.getElementById("tools-actions-bar");
+
+      if (isToolsOpen) {
+        content.classList.remove("hidden");
+        actionsBar.classList.remove("hidden");
+        btn.innerText = "▼";
+      } else {
+        content.classList.add("hidden");
+        actionsBar.classList.add("hidden");
+        btn.innerText = "▶";
+      }
+    }
+
+    function setToolFilter(filter) {
+      currentToolFilter = filter;
+      const btns = {
+        all: document.getElementById("btn-tool-all"),
+        pinned: document.getElementById("btn-tool-pinned"),
+        saved: document.getElementById("btn-tool-saved")
+      };
+
+      Object.keys(btns).forEach(key => {
+        if (key === filter) {
+          btns[key].className = "text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition-all cursor-pointer";
+        } else {
+          btns[key].className = "text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all cursor-pointer";
+        }
+      });
+
+      renderTools();
+    }
+
+    function togglePinTool(id) {
+      const tool = tools.find(t => t.id === id);
+      if (tool) {
+        tool.isPinned = !tool.isPinned;
+        saveToolsToStorage();
+        renderTools();
+        showToast(tool.isPinned ? `📌 "${tool.name}" fijada arriba` : `Herramienta desfijada`);
+      }
+    }
+
+    function toggleSaveTool(id) {
+      const tool = tools.find(t => t.id === id);
+      if (tool) {
+        tool.isSaved = !tool.isSaved;
+        saveToolsToStorage();
+        renderTools();
+        showToast(tool.isSaved ? `⭐ "${tool.name}" agregada a Mi Lista` : `Removida de Mi Lista`);
+      }
+    }
+
+    function renderTools() {
+      const grid = document.getElementById("tools-grid");
+      const empty = document.getElementById("tools-empty-state");
+
+      document.getElementById("count-tools-all").innerText = tools.length;
+      document.getElementById("count-tools-pinned").innerText = tools.filter(t => t.isPinned).length;
+      document.getElementById("count-tools-saved").innerText = tools.filter(t => t.isSaved).length;
+
+      let filtered = [...tools];
+      if (currentToolFilter === "pinned") filtered = filtered.filter(t => t.isPinned);
+      if (currentToolFilter === "saved") filtered = filtered.filter(t => t.isSaved);
+
+      // Fijadas siempre primero
+      filtered.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        empty.classList.remove("hidden");
+        empty.classList.add("flex");
+        return;
+      }
+
+      empty.classList.add("hidden");
+      empty.classList.remove("flex");
+
+      grid.innerHTML = filtered.map(t => `
+        <div class="rounded-xl p-4 border transition-all flex flex-col justify-between ${
+          t.isPinned 
+            ? 'bg-slate-900/95 border-amber-500/60 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/40' 
+            : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+        }">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40">
+                ${t.badge || 'Gratis'}
+              </span>
+              ${t.isPinned ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded flex items-center gap-1">📌 FIJADA</span>' : ''}
+            </div>
+
+            <h4 class="font-bold text-sm text-white mb-1.5 flex items-center justify-between">
+              <span>${t.name}</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed mb-4">
+              ${t.description}
+            </p>
+          </div>
+
+          <!-- BOTONES VISIBLES CON TEXTO CLARO -->
+          <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <button 
+                onclick="togglePinTool('${t.id}')"
+                class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                  t.isPinned 
+                    ? 'bg-amber-950 text-amber-300 border-amber-500' 
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }">
+                <span>📌</span>
+                <span>${t.isPinned ? 'Fijada' : 'Fijar'}</span>
+              </button>
+
+              <button 
+                onclick="toggleSaveTool('${t.id}')"
+                class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                  t.isSaved 
+                    ? 'bg-cyan-950 text-cyan-300 border-cyan-500' 
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }">
+                <span>⭐</span>
+                <span>${t.isSaved ? 'En mi lista' : 'Mi Lista'}</span>
+              </button>
+            </div>
+
+            <a 
+              href="${t.url}" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow cursor-pointer">
+              <span>Probar</span>
+              <span>↗</span>
+            </a>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function openNewToolModal() {
+      document.getElementById("new-tool-form").reset();
+      document.getElementById("new-tool-modal").classList.remove("hidden");
+      document.getElementById("new-tool-modal").classList.add("flex");
+    }
+
+    function closeNewToolModal() {
+      document.getElementById("new-tool-modal").classList.add("hidden");
+      document.getElementById("new-tool-modal").classList.remove("flex");
+    }
+
+    function handleCreateTool(e) {
+      e.preventDefault();
+      const newTool = {
+        id: "tool-" + Date.now(),
+        name: document.getElementById("new-tool-name").value.trim(),
+        badge: document.getElementById("new-tool-badge").value,
+        url: document.getElementById("new-tool-url").value.trim(),
+        description: document.getElementById("new-tool-desc").value.trim(),
+        isPinned: true,
+        isSaved: true
+      };
+
+      tools.unshift(newTool);
+      saveToolsToStorage();
+      renderTools();
+      closeNewToolModal();
+      showToast(`¡Herramienta "${newTool.name}" guardada y fijada!`);
+    }
+
+    /* =========================================================================
+       BIBLIOTECA DE PROMPTS: FILTROS Y RENDERIZADO
+       ========================================================================= */
+    const CATEGORIES = [
+      { id: "all", label: "Todas las categorías" },
+      { id: "desarrollo", label: "Desarrollo" },
+      { id: "marketing", label: "Marketing" },
+      { id: "productividad", label: "Productividad" },
+      { id: "creatividad", label: "Creatividad" }
+    ];
+
+    function renderCategoryPills() {
+      const container = document.getElementById("category-pills");
+      container.innerHTML = CATEGORIES.map(cat => {
+        const isActive = currentCategory === cat.id;
+        const cls = isActive 
+          ? "bg-brand-600 text-white font-bold shadow-md" 
+          : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800";
+        return `
+          <button onclick="setCategory('${cat.id}')" class="px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all cursor-pointer ${cls}">
+            ${cat.label}
+          </button>
+        `;
+      }).join("");
+    }
+
+    function extractVariables(text) {
+      const matches = text.match(/\[([A-Z0-9_ÁÉÍÓÚÑ]+)\]/g);
+      if (!matches) return [];
+      return [...new Set(matches.map(m => m.slice(1, -1)))];
+    }
+
+    function renderPrompts() {
+      const grid = document.getElementById("prompts-grid");
+      const empty = document.getElementById("empty-state");
+
+      const filtered = prompts.filter(p => {
+        if (currentCategory !== "all" && p.category !== currentCategory) return false;
+        if (currentDifficulty !== "all" && p.difficulty !== currentDifficulty) return false;
+        if (onlyFavorites && !favorites.has(p.id)) return false;
+        if (searchQuery.trim() !== "") {
+          const q = searchQuery.toLowerCase();
+          const matchTitle = (p.title || "").toLowerCase().includes(q);
+          const matchDesc = (p.description || "").toLowerCase().includes(q);
+          const matchBody = (p.prompt || "").toLowerCase().includes(q);
+          if (!matchTitle && !matchDesc && !matchBody) return false;
+        }
+        return true;
+      });
+
+      document.getElementById("stat-showing-prompts").innerText = filtered.length;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        empty.classList.remove("hidden");
+        empty.classList.add("flex");
+        return;
+      }
+
+      empty.classList.add("hidden");
+      empty.classList.remove("flex");
+
+      grid.innerHTML = filtered.map(p => {
+        const isFav = favorites.has(p.id);
+        const vars = extractVariables(p.prompt);
+        const varsPills = vars.slice(0, 3).map(v => 
+          `<span class="bg-slate-800 text-slate-300 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-700">[${v}]</span>`
+        ).join("");
+
+        return `
+          <div class="glass rounded-2xl p-5 flex flex-col justify-between hover:border-slate-600 transition-all group">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
+                    ${p.category}
+                  </span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded ${
+                    p.difficulty === 'Principiante' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40' :
+                    p.difficulty === 'Intermedio' ? 'bg-amber-950 text-amber-400 border border-amber-500/40' :
+                    'bg-rose-950 text-rose-400 border border-rose-500/40'
+                  }">
+                    ${p.difficulty}
+                  </span>
+                </div>
+                <button onclick="toggleFavorite('${p.id}')" title="Marcar como favorito" class="p-1 rounded text-slate-400 hover:text-amber-400 font-bold transition-colors cursor-pointer text-base">
+                  ${isFav ? '⭐' : '☆'}
+                </button>
+              </div>
+
+              <h4 class="font-bold text-sm text-white group-hover:text-brand-300 transition-colors mb-1">
+                ${p.title}
+              </h4>
+              <p class="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">
+                ${p.description}
+              </p>
+
+              ${vars.length > 0 ? `
+                <div class="mb-4 pt-2.5 border-t border-slate-800">
+                  <span class="text-[10px] text-slate-500 block mb-1 font-semibold">Variables detectadas:</span>
+                  <div class="flex flex-wrap items-center gap-1">
+                    ${varsPills}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- BOTONES CLAROS DEL PROMPT -->
+            <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-800">
+              <span class="text-[10px] font-mono text-slate-500">${p.author || '@sergioprompts'}</span>
+              <div class="flex items-center gap-1.5">
+                <button 
+                  onclick="openVariableModal('${p.id}')" 
+                  class="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition-all cursor-pointer">
+                  Personalizar
+                </button>
+                <button 
+                  onclick="quickCopy('${p.id}')" 
+                  class="text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow">
+                  Copiar
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function setupSearchListener() {
+      const searchInput = document.getElementById("search-input");
+      const clearBtn = document.getElementById("clear-search");
+
+      searchInput.addEventListener("input", (e) => {
+        searchQuery = e.target.value;
+        if (searchQuery.length > 0) clearBtn.classList.remove("hidden");
+        else clearBtn.classList.add("hidden");
+        renderPrompts();
+      });
+    }
+
+    function clearSearch() {
+      const searchInput = document.getElementById("search-input");
+      searchInput.value = "";
+      searchQuery = "";
+      document.getElementById("clear-search").classList.add("hidden");
+      renderPrompts();
+      searchInput.focus();
+    }
+
+    function setCategory(id) {
+      currentCategory = id;
+      renderCategoryPills();
+      renderPrompts();
+    }
+
+    function applyFilters() {
+      currentDifficulty = document.getElementById("filter-difficulty").value;
+      renderPrompts();
+    }
+
+    function toggleFavFilter() {
+      onlyFavorites = !onlyFavorites;
+      const btn = document.getElementById("btn-fav-filter");
+      const label = document.getElementById("fav-btn-label");
+      if (onlyFavorites) {
+        btn.classList.add("bg-amber-500/20", "border-amber-500", "text-amber-300");
+        label.innerText = "Mostrando Favoritos";
+      } else {
+        btn.classList.remove("bg-amber-500/20", "border-amber-500", "text-amber-300");
+        label.innerText = "Solo Favoritos";
+      }
+      renderPrompts();
+    }
+
+    function toggleFavorite(id) {
+      if (favorites.has(id)) favorites.delete(id);
+      else favorites.add(id);
+      saveFavoritesToStorage();
+      renderPrompts();
+    }
+
+    function quickCopy(id) {
+      const p = prompts.find(x => x.id === id);
+      if (!p) return;
+      navigator.clipboard.writeText(p.prompt).then(() => {
+        showToast("¡Plantilla copiada al portapapeles!");
+      }).catch(() => {
+        const t = document.createElement("textarea");
+        t.value = p.prompt;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand("copy");
+        document.body.removeChild(t);
+        showToast("¡Plantilla copiada!");
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      document.getElementById("toast-message").innerText = msg;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+      setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+        toast.classList.remove("translate-y-0", "opacity-100");
+      }, 2600);
+    }
+
+    /* =========================================================================
+       MODAL: PERSONALIZACIÓN
+       ========================================================================= */
+    function openVariableModal(id) {
+      const p = prompts.find(x => x.id === id);
+      if (!p) return;
+      activePrompt = p;
+      currentVariablesValues = {};
+
+      document.getElementById("modal-title").innerText = p.title;
+      document.getElementById("modal-description").innerText = p.description;
+      document.getElementById("modal-category").innerText = p.category;
+
+      const variables = extractVariables(p.prompt);
+      const inputsContainer = document.getElementById("modal-inputs");
+      const varsBox = document.getElementById("modal-variables-container");
+
+      if (variables.length === 0) {
+        varsBox.classList.add("hidden");
+      } else {
+        varsBox.classList.remove("hidden");
+        inputsContainer.innerHTML = variables.map(v => `
+          <div>
+            <label class="block text-xs font-mono font-bold text-slate-300 mb-1">[${v}]</label>
+            <input 
+              type="text" 
+              data-var="${v}" 
+              placeholder="Introduce valor para [${v}]..." 
+              oninput="handleVariableInput(event)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
+            />
+          </div>
+        `).join("");
+      }
+
+      updateModalPreview();
+      document.getElementById("variable-modal").classList.remove("hidden");
+      document.getElementById("variable-modal").classList.add("flex");
+    }
+
+    function handleVariableInput(e) {
+      const varName = e.target.getAttribute("data-var");
+      currentVariablesValues[varName] = e.target.value;
+      updateModalPreview();
+    }
+
+    function getProcessedPromptText() {
+      if (!activePrompt) return "";
+      let processed = activePrompt.prompt;
+      for (const [key, val] of Object.entries(currentVariablesValues)) {
+        if (val && val.trim() !== "") {
+          const regex = new RegExp(`\\[${key}\\]`, "g");
+          processed = processed.replace(regex, val.trim());
+        }
+      }
+      return processed;
+    }
+
+    function updateModalPreview() {
+      document.getElementById("modal-preview").innerText = getProcessedPromptText();
+    }
+
+    function resetModalInputs() {
+      currentVariablesValues = {};
+      document.querySelectorAll("#modal-inputs input").forEach(i => i.value = "");
+      updateModalPreview();
+    }
+
+    function copyProcessedPrompt() {
+      const text = getProcessedPromptText();
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("¡Prompt personalizado copiado!");
+        closeVariableModal();
+      }).catch(() => {
+        const t = document.createElement("textarea");
+        t.value = text;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand("copy");
+        document.body.removeChild(t);
+        showToast("¡Prompt copiado!");
+        closeVariableModal();
+      });
+    }
+
+    function closeVariableModal() {
+      document.getElementById("variable-modal").classList.add("hidden");
+      document.getElementById("variable-modal").classList.remove("flex");
+      activePrompt = null;
+    }
+
+    /* =========================================================================
+       MODAL: CREAR NUEVO PROMPT
+       ========================================================================= */
+    function openNewPromptModal() {
+      document.getElementById("new-prompt-form").reset();
+      document.getElementById("new-prompt-modal").classList.remove("hidden");
+      document.getElementById("new-prompt-modal").classList.add("flex");
+    }
+
+    function closeNewPromptModal() {
+      document.getElementById("new-prompt-modal").classList.add("hidden");
+      document.getElementById("new-prompt-modal").classList.remove("flex");
+    }
+
+    function handleCreatePrompt(e) {
+      e.preventDefault();
+      const newPrompt = {
+        id: "custom-" + Date.now(),
+        title: document.getElementById("new-title").value.trim(),
+        category: document.getElementById("new-category").value,
+        difficulty: document.getElementById("new-difficulty").value,
+        description: document.getElementById("new-description").value.trim(),
+        prompt: document.getElementById("new-body").value.trim(),
+        author: "Personal"
+      };
+
+      prompts.unshift(newPrompt);
+      savePromptsToStorage();
+      renderPrompts();
+      closeNewPromptModal();
+      showToast("¡Prompt añadido a tu biblioteca!");
+    }
+
+    // ARRANQUE AUTOMÁTICO AL CARGAR LA PÁGINA
+    window.addEventListener("DOMContentLoaded", initApp);
+  </script>
+</body>
+</html>
