@@ -271,28 +271,56 @@
           </div>
         </div>
 
-        <div class="flex flex-col lg:flex-row gap-3">
-          <div class="relative flex-1 flex items-center">
-            <input 
-              type="text" 
-              id="search-input" 
-              placeholder="Buscar por título, contenido o variable [VARIABLE]..." 
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-36 py-2.5 text-sm focus:outline-none focus:border-brand-500 text-slate-100 placeholder-slate-500"
-            />
-            <span id="search-filtered-pill" class="hidden absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-brand-600/30 text-brand-200 border border-brand-500/50 pointer-events-none">
-              <span id="search-filtered-inline">0</span> filtrados
-            </span>
-            <button id="clear-search" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white font-bold cursor-pointer">✕</button>
+        <!-- FILTROS DE BÚSQUEDA POR TEXTO (INCLUIR Y EXCLUIR) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- BUSCADOR POR TEXTO (INCLUIR) -->
+          <div>
+            <label for="search-input" class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
+              🔍 Buscar / Incluir texto
+            </label>
+            <div class="relative flex items-center">
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="Buscar por título, contenido o variable [VARIABLE]..." 
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-36 py-2.5 text-sm focus:outline-none focus:border-brand-500 text-slate-100 placeholder-slate-500"
+              />
+              <span id="search-filtered-pill" class="hidden absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-brand-600/30 text-brand-200 border border-brand-500/50 pointer-events-none">
+                <span id="search-filtered-inline">0</span> filtrados
+              </span>
+              <button id="clear-search" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white font-bold cursor-pointer">✕</button>
+            </div>
           </div>
 
-          <select id="filter-difficulty" onchange="applyFilters()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer">
+          <!-- FILTRO POR TEXTO (EXCLUIR) -->
+          <div>
+            <label for="exclude-input" class="block text-[11px] font-bold text-rose-300 uppercase tracking-wider mb-1">
+              🚫 Excluir texto (oculta coincidencias)
+            </label>
+            <div class="relative flex items-center">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400 text-xs pointer-events-none">🚫</span>
+              <input 
+                type="text" 
+                id="exclude-input" 
+                placeholder="Ej: python, aws, docker (separar por comas)..." 
+                title="Excluye de la búsqueda los prompts que contengan este texto"
+                class="w-full bg-rose-950/20 border-2 border-rose-500/50 rounded-xl pl-9 pr-9 py-2 text-sm focus:outline-none focus:border-rose-400 text-slate-100 placeholder-slate-400"
+              />
+              <button id="clear-exclude" onclick="clearExcludeSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-rose-300 hover:text-white font-bold cursor-pointer">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- FILTROS SECUNDARIOS (DIFICULTAD Y FAVORITOS) -->
+        <div class="flex flex-wrap items-center gap-3">
+          <select id="filter-difficulty" onchange="applyFilters()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer">
             <option value="all">Todas las dificultades</option>
             <option value="Principiante">Principiante (Verde)</option>
             <option value="Intermedio">Intermedio (Ámbar)</option>
             <option value="Avanzado">Avanzado (Rojo)</option>
           </select>
 
-          <button id="btn-fav-filter" onclick="toggleFavFilter()" class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:text-white text-sm font-semibold transition-colors cursor-pointer">
+          <button id="btn-fav-filter" onclick="toggleFavFilter()" class="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:text-white text-sm font-semibold transition-colors cursor-pointer">
             <span>⭐</span>
             <span id="fav-btn-label">Solo Favoritos</span>
           </button>
@@ -1083,6 +1111,7 @@
     let currentDifficulty = "all";
     let onlyFavorites = false;
     let searchQuery = "";
+    let excludeQuery = "";
 
     let visibleLimit = 60;
     let activePrompt = null;
@@ -1174,10 +1203,11 @@
       if (inlineCount) inlineCount.innerText = filteredCount;
 
       const hasTextQuery = searchQuery.trim().length > 0;
-      const hasAnyFilter = hasTextQuery || currentDifficulty !== "all" || onlyFavorites;
+      const hasExcludeQuery = excludeQuery.trim().length > 0;
+      const hasAnyFilter = hasTextQuery || hasExcludeQuery || currentDifficulty !== "all" || onlyFavorites;
 
       if (inlinePill) {
-        if (hasTextQuery) {
+        if (hasTextQuery || hasExcludeQuery) {
           inlinePill.classList.remove("hidden");
         } else {
           inlinePill.classList.add("hidden");
@@ -1193,11 +1223,12 @@
                 : prompts.filter(p => !p.isNew && p.category === currentCategory).length);
 
           const parts = [];
-          if (hasTextQuery) parts.push(`texto "${searchQuery.trim()}"`);
+          if (hasTextQuery) parts.push(`incluyendo "${searchQuery.trim()}"`);
+          if (hasExcludeQuery) parts.push(`excluyendo "${excludeQuery.trim()}"`);
           if (currentDifficulty !== "all") parts.push(`dificultad ${currentDifficulty}`);
           if (onlyFavorites) parts.push("solo favoritos");
 
-          activeSummaryText.innerHTML = `<strong>${filteredCount}</strong> filtrados encontrados (de ${scopeTotal} en esta pestaña) por ${escapeHtml(parts.join(" + "))}.`;
+          activeSummaryText.innerHTML = `<strong>${filteredCount}</strong> filtrados encontrados (de ${scopeTotal} en esta pestaña) • ${escapeHtml(parts.join(" • "))}.`;
           activeSummary.classList.remove("hidden");
           activeSummary.classList.add("flex");
         } else {
@@ -1454,11 +1485,16 @@
       currentDifficulty = "all";
       onlyFavorites = false;
       searchQuery = "";
+      excludeQuery = "";
 
       const sInp = document.getElementById("search-input");
       if (sInp) sInp.value = "";
+      const eInp = document.getElementById("exclude-input");
+      if (eInp) eInp.value = "";
       const clearBtn = document.getElementById("clear-search");
       if (clearBtn) clearBtn.classList.add("hidden");
+      const clearExcludeBtn = document.getElementById("clear-exclude");
+      if (clearExcludeBtn) clearExcludeBtn.classList.add("hidden");
       const report = document.getElementById("batch-verification-report");
       if (report) report.classList.add("hidden");
 
@@ -1479,7 +1515,7 @@
 
       const backup = {
         app: "PromptVault_Clean",
-        version: "11.1",
+        version: "11.3",
         exportDate: new Date().toISOString(),
         currentBatchPage: currentBatchPage,
         totalPrompts: prompts.length,
@@ -1954,7 +1990,6 @@
         .slice(internetCursor)
         .filter(item => verifyBatchDeduplication([item], prompts).uniqueItems.length > 0);
 
-      // ESTRICTAMENTE MÁXIMO 5 POR VEZ
       internetShownBatch = internetPromptQueue.slice(internetCursor, internetCursor + 5);
       internetCursor += internetShownBatch.length;
 
@@ -2263,6 +2298,11 @@
       const loadMoreContainer = document.getElementById("load-more-container");
       const dupIds = getDuplicateIds();
 
+      const excludeTerms = excludeQuery
+        .split(",")
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0);
+
       const filtered = prompts.filter(p => {
         if (currentCategory === "nuevos") {
           if (!p.isNew) return false;
@@ -2274,14 +2314,34 @@
 
         if (currentDifficulty !== "all" && p.difficulty !== currentDifficulty) return false;
         if (onlyFavorites && !favorites.has(p.id)) return false;
+
+        const titleLower = (p.title || "").toLowerCase();
+        const descLower = (p.description || "").toLowerCase();
+        const bodyLower = (p.prompt || "").toLowerCase();
+        const authorLower = (p.author || "").toLowerCase();
+
         if (searchQuery.trim() !== "") {
-          const q = searchQuery.toLowerCase();
-          const matchTitle = (p.title || "").toLowerCase().includes(q);
-          const matchDesc = (p.description || "").toLowerCase().includes(q);
-          const matchBody = (p.prompt || "").toLowerCase().includes(q);
-          const matchAuthor = (p.author || "").toLowerCase().includes(q);
-          if (!matchTitle && !matchDesc && !matchBody && !matchAuthor) return false;
+          const q = searchQuery.trim().toLowerCase();
+          if (
+            !titleLower.includes(q) &&
+            !descLower.includes(q) &&
+            !bodyLower.includes(q) &&
+            !authorLower.includes(q)
+          ) {
+            return false;
+          }
         }
+
+        if (excludeTerms.length > 0) {
+          const hasExcluded = excludeTerms.some(term =>
+            titleLower.includes(term) ||
+            descLower.includes(term) ||
+            bodyLower.includes(term) ||
+            authorLower.includes(term)
+          );
+          if (hasExcluded) return false;
+        }
+
         return true;
       });
 
@@ -2389,6 +2449,19 @@
         else clearBtn.classList.add("hidden");
         renderPrompts();
       });
+
+      const excludeInput = document.getElementById("exclude-input");
+      const clearExcludeBtn = document.getElementById("clear-exclude");
+
+      if (excludeInput) {
+        excludeInput.addEventListener("input", (e) => {
+          excludeQuery = e.target.value;
+          visibleLimit = 60;
+          if (excludeQuery.length > 0) clearExcludeBtn.classList.remove("hidden");
+          else clearExcludeBtn.classList.add("hidden");
+          renderPrompts();
+        });
+      }
     }
 
     function clearSearch() {
@@ -2402,9 +2475,23 @@
       searchInput.focus();
     }
 
+    function clearExcludeSearch() {
+      const excludeInput = document.getElementById("exclude-input");
+      if (excludeInput) excludeInput.value = "";
+      excludeQuery = "";
+      visibleLimit = 60;
+      const clearExcludeBtn = document.getElementById("clear-exclude");
+      if (clearExcludeBtn) clearExcludeBtn.classList.add("hidden");
+      renderPrompts();
+      if (excludeInput) excludeInput.focus();
+    }
+
     function resetAllSearchFilters() {
       document.getElementById("search-input").value = "";
       searchQuery = "";
+      const excludeInput = document.getElementById("exclude-input");
+      if (excludeInput) excludeInput.value = "";
+      excludeQuery = "";
       currentDifficulty = "all";
       document.getElementById("filter-difficulty").value = "all";
       onlyFavorites = false;
@@ -2413,6 +2500,8 @@
       btn.classList.remove("bg-amber-500/20", "border-amber-500", "text-amber-300");
       label.innerText = "Solo Favoritos";
       document.getElementById("clear-search").classList.add("hidden");
+      const clearExcludeBtn = document.getElementById("clear-exclude");
+      if (clearExcludeBtn) clearExcludeBtn.classList.add("hidden");
       visibleLimit = 60;
       renderPrompts();
     }
