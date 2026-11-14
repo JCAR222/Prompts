@@ -41,8 +41,8 @@
   <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="handleImportFile(event)">
 
   <!-- TOAST NOTIFICACIONES -->
-  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl border border-emerald-400">
-    <svg class="w-5 h-5 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl border border-emerald-400 max-w-md">
+    <svg class="w-5 h-5 shrink-0 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
     <span id="toast-message" class="text-sm font-bold">Acción completada</span>
   </div>
 
@@ -149,9 +149,9 @@
     </section>
 
     <!-- =========================================================================
-         BOX 2: PANEL DE CONTROL DE CARGA POR LOTES (FILTRADO PREVENTIVO)
+         BOX 2: PANEL DE CONTROL DE CARGA POR LOTES & RADAR INTERNET
          ========================================================================= -->
-    <section class="glass p-5 rounded-2xl border-2 border-indigo-500/40 shadow-xl bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900">
+    <section class="glass p-5 rounded-2xl border-2 border-indigo-500/40 shadow-xl bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 flex flex-col gap-3">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         
         <div>
@@ -164,7 +164,7 @@
             </h3>
           </div>
           <p class="text-xs text-slate-300 mt-1">
-            Filtro preventivo activo: solo los prompts <strong class="text-emerald-300">diferentes y únicos</strong> ingresan a <strong class="text-amber-300">"🔥 Nuevos"</strong>. Los duplicados se descartan en el acto.
+            Filtro preventivo exhaustivo: verifica <strong class="text-emerald-300">entre sí</strong> y contra <strong class="text-emerald-300">todas las categorías</strong> antes de ingresar a <strong class="text-amber-300">"🔥 Nuevos"</strong>.
           </p>
         </div>
 
@@ -198,7 +198,7 @@
             </div>
           </div>
 
-          <div class="self-end">
+          <div class="self-end flex flex-wrap items-center gap-2">
             <button 
               onclick="executeBatchLoad()" 
               id="btn-execute-batch"
@@ -206,9 +206,27 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               <span>⚡ Cargar Lote y Sumar</span>
             </button>
+
+            <button 
+              onclick="openInternetSearchModal(true)" 
+              id="btn-internet-radar"
+              title="Busca en tiempo real webs, repositorios y generadores de prompts en Internet y extrae un máximo de 5 por vez"
+              class="flex items-center gap-2 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-lg border border-cyan-400/40 transition-all cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+              <span>🌐 Buscar en Internet (Máx. 5)</span>
+            </button>
           </div>
         </div>
 
+      </div>
+
+      <!-- REPORTE DE VERIFICACIÓN DE INTEGRIDAD DEL ÚLTIMO LOTE -->
+      <div id="batch-verification-report" class="hidden items-center justify-between gap-2 text-xs bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 px-3.5 py-2 rounded-xl">
+        <div class="flex items-center gap-2">
+          <span class="font-black text-emerald-400">✓ Auditoría de Lote:</span>
+          <span id="batch-verification-text">0 analizados</span>
+        </div>
+        <button onclick="document.getElementById('batch-verification-report').classList.add('hidden')" class="text-emerald-400 hover:text-white font-bold cursor-pointer">✕</button>
       </div>
     </section>
 
@@ -220,10 +238,13 @@
       <div class="glass p-5 rounded-2xl flex flex-col gap-4 border border-slate-800 shadow-xl">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div>
-            <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <h3 class="text-base font-bold text-white flex items-center gap-2 flex-wrap">
               <span>📚 Prompts en Biblioteca</span>
               <span class="text-xs font-mono text-emerald-400 bg-emerald-950/70 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold">
                 Total Almacenado: <span id="stat-showing-prompts" class="text-emerald-300">0</span>
+              </span>
+              <span id="header-filtered-badge" class="text-xs font-mono text-cyan-300 bg-cyan-950/70 border border-cyan-500/40 px-2.5 py-0.5 rounded-full font-bold">
+                Filtrados: <span id="stat-filtered-count">0</span>
               </span>
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">
@@ -232,7 +253,7 @@
           </div>
           
           <div class="flex items-center gap-2 flex-wrap">
-            <!-- BOTÓN DINÁMICO DE LIMPIEZA DE DUPLICADOS (SI HUBIERA DUPLICADOS DE SESIONES PREVIAS) -->
+            <!-- BOTÓN DINÁMICO DE LIMPIEZA DE DUPLICADOS -->
             <button 
               id="btn-clean-duplicates" 
               onclick="cleanDuplicates()" 
@@ -251,13 +272,16 @@
         </div>
 
         <div class="flex flex-col lg:flex-row gap-3">
-          <div class="relative flex-1">
+          <div class="relative flex-1 flex items-center">
             <input 
               type="text" 
               id="search-input" 
               placeholder="Buscar por título, contenido o variable [VARIABLE]..." 
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-10 py-2.5 text-sm focus:outline-none focus:border-brand-500 text-slate-100 placeholder-slate-500"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-36 py-2.5 text-sm focus:outline-none focus:border-brand-500 text-slate-100 placeholder-slate-500"
             />
+            <span id="search-filtered-pill" class="hidden absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-brand-600/30 text-brand-200 border border-brand-500/50 pointer-events-none">
+              <span id="search-filtered-inline">0</span> filtrados
+            </span>
             <button id="clear-search" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white font-bold cursor-pointer">✕</button>
           </div>
 
@@ -272,6 +296,15 @@
             <span>⭐</span>
             <span id="fav-btn-label">Solo Favoritos</span>
           </button>
+        </div>
+
+        <!-- RESUMEN ACTIVO DE FILTRADO DE TEXTO -->
+        <div id="active-filter-summary" class="hidden items-center justify-between text-xs bg-indigo-950/40 border border-indigo-500/30 px-3.5 py-2 rounded-xl text-indigo-200">
+          <div class="flex items-center gap-2">
+            <span>🔎</span>
+            <span id="active-filter-summary-text">Mostrando 0 prompts filtrados</span>
+          </div>
+          <button onclick="resetAllSearchFilters()" class="text-indigo-300 hover:text-white underline font-semibold cursor-pointer">Limpiar filtros</button>
         </div>
 
         <!-- PESTAÑAS DE CLASIFICACIÓN CON CONTADORES -->
@@ -305,10 +338,13 @@
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
         </div>
         <p class="text-base font-bold text-slate-200">No hay prompts en esta vista.</p>
-        <p class="text-xs text-slate-400 mt-1 mb-5 max-w-md">Importa un archivo JSON o utiliza el Módulo de Carga por Lotes de arriba para incorporar prompts únicos.</p>
-        <div class="flex items-center gap-3">
+        <p class="text-xs text-slate-400 mt-1 mb-5 max-w-md">Importa un archivo JSON, busca prompts reales en Internet o utiliza el Módulo de Carga por Lotes.</p>
+        <div class="flex flex-wrap items-center justify-center gap-3">
           <button onclick="triggerImport()" class="text-xs bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/60 font-bold px-4 py-2.5 rounded-xl shadow cursor-pointer">
             📂 Importar desde Fichero JSON
+          </button>
+          <button onclick="openInternetSearchModal(true)" class="text-xs bg-sky-700 hover:bg-sky-600 text-white font-bold px-4 py-2.5 rounded-xl shadow cursor-pointer">
+            🌐 Buscar en Internet (Máx. 5)
           </button>
           <button onclick="executeBatchLoad()" class="text-xs bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-2.5 rounded-xl shadow cursor-pointer">
             ⚡ Cargar Lote Inicial (50)
@@ -455,8 +491,124 @@
     </div>
   </div>
 
-  <!-- JAVASCRIPT: FILTRO PREVENTIVO EN TIEMPO DE CARGA Y MATRIZ COMBINATORIA -->
+  <!-- =========================================================================
+       MODAL 4: BÚSQUEDA RÁPIDA EN INTERNET (MÁX. 5 PROMPTS POR VEZ)
+       ========================================================================= -->
+  <div id="internet-search-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
+    <div class="glass max-w-4xl w-full rounded-2xl shadow-2xl border border-cyan-500/40 overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase">
+              Radar Web en Vivo
+            </span>
+            <h2 class="text-base font-bold text-white">🌐 Explorador Rápido de Prompts en Internet (Máx. 5 por vez)</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Descubre páginas web, repositorios y generadores abiertos en Internet para extraer prompts únicos.</p>
+        </div>
+        <button onclick="closeInternetSearchModal()" class="text-slate-400 hover:text-white font-bold p-1 cursor-pointer">✕</button>
+      </div>
+
+      <!-- BARRA DE BÚSQUEDA EN INTERNET -->
+      <form onsubmit="handleInternetSearchSubmit(event)" class="p-4 border-b border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row gap-2.5">
+        <input 
+          type="text" 
+          id="internet-topic-input" 
+          placeholder="Tema opcional (ej: marketing, python, copywriting, agent, sql...)" 
+          class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+        />
+        <button 
+          type="submit" 
+          id="btn-run-internet-search"
+          class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition-all cursor-pointer flex items-center justify-center gap-1.5">
+          <span>🔍 Buscar en Internet</span>
+        </button>
+      </form>
+
+      <!-- CUERPO DE RESULTADOS -->
+      <div class="p-5 overflow-y-auto space-y-5 flex-1 text-xs">
+        
+        <!-- ESTADO DE CARGA / MENSAJE -->
+        <div id="internet-search-status" class="hidden items-center gap-3 p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-cyan-300">
+          <div class="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
+          <span id="internet-status-text">Consultando repositorios y generadores abiertos en Internet...</span>
+        </div>
+
+        <!-- PÁGINAS WEB Y GENERADORES ENCONTRADOS -->
+        <div id="internet-sources-section" class="hidden space-y-2">
+          <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-2">
+            <span>🔗 Páginas Web, Repositorios y Generadores Encontrados</span>
+            <span id="internet-sources-count" class="bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono">0</span>
+          </h4>
+          <div id="internet-sources-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+        </div>
+
+        <!-- PROMPTS EXTRAÍDOS (MÁXIMO 5 POR VEZ) -->
+        <div id="internet-prompts-section" class="hidden space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+              <span>✨ Prompts Extraídos Únicos (Máx. 5 por vez)</span>
+              <span id="internet-prompts-count" class="bg-amber-950 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono">0</span>
+            </h4>
+            <div class="flex items-center gap-2">
+              <button 
+                onclick="showNextInternetBatch()" 
+                id="btn-internet-next-5"
+                class="hidden text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 px-3 py-1.5 rounded-lg cursor-pointer transition-all">
+                🔄 Mostrar siguientes 5
+              </button>
+              <button 
+                onclick="importAllShownInternetPrompts()" 
+                id="btn-internet-import-all"
+                class="text-[11px] font-bold bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg shadow cursor-pointer transition-all">
+                ⚡ Añadir los <span id="internet-import-all-count">0</span> a "🔥 Nuevos"
+              </button>
+            </div>
+          </div>
+
+          <div id="internet-prompts-list" class="space-y-3"></div>
+        </div>
+
+        <!-- ESTADO VACÍO / ERROR DE RED -->
+        <div id="internet-empty-state" class="hidden flex-col items-center justify-center py-8 text-center bg-slate-900/60 border border-slate-800 rounded-xl p-6">
+          <p class="text-sm font-bold text-slate-200 mb-1" id="internet-empty-title">No se encontraron prompts nuevos para extraer.</p>
+          <p class="text-xs text-slate-400 max-w-lg" id="internet-empty-desc">Prueba con otro término en inglés o español (ej: "coding", "marketing", "system") o comprueba tu conexión a Internet.</p>
+        </div>
+
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between text-[11px] text-slate-400">
+        <span>Todos los prompts extraídos pasan por el filtro preventivo anti-duplicados antes de entrar a "🔥 Nuevos".</span>
+        <button onclick="closeInternetSearchModal()" class="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 cursor-pointer">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT: FILTRO PREVENTIVO EXHAUSTIVO, RADAR INTERNET Y MATRIZ COMBINATORIA -->
   <script>
+    /* =========================================================================
+       UTILIDADES DE SEGURIDAD HTML Y PARSEO
+       ========================================================================= */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function sanitizeUrl(url) {
+      if (!url || typeof url !== "string") return "#";
+      const trimmed = url.trim();
+      if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+        return trimmed;
+      }
+      return "#";
+    }
+
     /* =========================================================================
        MOTOR INDEXEDDB
        ========================================================================= */
@@ -558,8 +710,7 @@
     ];
 
     /* =========================================================================
-       MATRIZ COMBINATORIA EXPANDIDA (+2.000 COMBINACIONES ÚNICAS)
-       Genera títulos y cuerpos sin coletillas "#10.48"
+       MATRIZ COMBINATORIA EXPANDIDA (SIN COLETILLAS NUMÉRICAS)
        ========================================================================= */
     const COMBINATORIAL_DATA = {
       roles: [
@@ -604,84 +755,288 @@
         { task: "Plan de Aprendizaje Acelerado de 30 Días", obj: "desglosar el 20% fundamental de conocimientos y habilidades para alcanzar un nivel profesionalmente competente en [HABILIDAD] con práctica deliberada." },
         { task: "Narrativa de Marca Personal Mediante Metáforas", obj: "transformar una lección de superación o fracaso en [EXPERIENCIA] en una historia cautivadora que inspire y conecte emocionalmente con [AUDIENCIA]." },
         { task: "Ideación de Propuestas de Valor Disruptivas", obj: "aplicar inversión de supuestos y pensamiento lateral al modelo de negocio de [INDUSTRIA] para encontrar un ángulo de mercado completamente desatendido." }
+      ],
+      approaches: [
+        "con enfoque práctico", "orientado a resultados", "para entornos exigentes",
+        "con criterios de auditoría", "paso a paso", "de alto impacto",
+        "con validación técnica", "para equipos ágiles", "sin fricción operativa",
+        "con métricas clave"
       ]
     };
 
     /* =========================================================================
-       FIRMA DIGITAL Y NORMALIZACIÓN DE PROMPTS
-       (Identifica duplicados incluso si tenían títulos ligeramente alterados)
+       FIRMA DIGITAL EXHAUSTIVA Y NORMALIZACIÓN DE PROMPTS
        ========================================================================= */
-    function getNormalizedSignature(p) {
-      if (!p) return "";
-      
-      // 1. Limpiar título de cualquier residuo numérico tipo #10.48, #1.2, (copia), etc.
-      const cleanTitle = (p.title || "")
+    function normalizeTextStrict(str) {
+      return (str || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
         .replace(/#\d+(\.\d+)?/g, "")
         .replace(/\(\d+\)/g, "")
-        .trim()
-        .toLowerCase();
-
-      // 2. Normalizar el cuerpo del prompt (eliminar espacios múltiples)
-      const cleanBody = (p.prompt || "")
-        .trim()
         .toLowerCase()
-        .replace(/\s+/g, ' ');
+        .replace(/[^\w\s\[\]]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
 
-      // El cuerpo del prompt es la huella digital verdadera
+    function getNormalizedSignature(p) {
+      if (!p) return "";
+      const cleanTitle = normalizeTextStrict(p.title || "");
+      const cleanBody = normalizeTextStrict(p.prompt || "");
       return cleanBody.length > 35 ? cleanBody : `${cleanTitle}:::${cleanBody}`;
     }
 
-    /* =========================================================================
-       FILTRO PREVENTIVO EN TIEMPO DE CARGA (DISCARD EN EL ACTO)
-       ========================================================================= */
-    function filterUniqueIncoming(incomingList, existingList) {
-      const existingSignatures = new Set(existingList.map(p => getNormalizedSignature(p)));
-      const uniqueItems = [];
-      let duplicatesCount = 0;
-
-      incomingList.forEach(item => {
-        const sig = getNormalizedSignature(item);
-        // Si no existe en la biblioteca Y tampoco está repetido dentro del mismo lote entrante
-        if (!existingSignatures.has(sig)) {
-          existingSignatures.add(sig);
-          uniqueItems.push(item);
-        } else {
-          duplicatesCount++;
-        }
-      });
-
-      return { uniqueItems, duplicatesCount };
+    function getNormalizedTitleSignature(p) {
+      if (!p) return "";
+      const cleanTitle = normalizeTextStrict(p.title || "");
+      const cat = (p.category || "general").toLowerCase().trim();
+      return `${cat}:::${cleanTitle}`;
     }
 
     /* =========================================================================
-       GENERADOR DE LOTES SIN REPETICIONES
+       VERIFICACIÓN EXHAUSTIVA PREVENTIVA (ENTRE SÍ Y CONTRA TODAS LAS CATEGORÍAS)
+       ========================================================================= */
+    function verifyBatchDeduplication(incomingList, existingList) {
+      const existingBodySigs = new Set();
+      const existingTitleSigs = new Set();
+
+      existingList.forEach(p => {
+        const bSig = getNormalizedSignature(p);
+        if (bSig) existingBodySigs.add(bSig);
+        const tSig = getNormalizedTitleSignature(p);
+        if (tSig) existingTitleSigs.add(tSig);
+      });
+
+      const batchBodySigs = new Set();
+      const batchTitleSigs = new Set();
+      const uniqueItems = [];
+      let existingDuplicates = 0;
+      let internalDuplicates = 0;
+
+      incomingList.forEach(item => {
+        if (!item || !item.prompt || item.prompt.trim().length < 15) return;
+        const bSig = getNormalizedSignature(item);
+        const tSig = getNormalizedTitleSignature(item);
+
+        if (existingBodySigs.has(bSig)) {
+          existingDuplicates++;
+          return;
+        }
+        if (batchBodySigs.has(bSig)) {
+          internalDuplicates++;
+          return;
+        }
+        if (existingTitleSigs.has(tSig) && normalizeTextStrict(item.prompt).length <= 35) {
+          existingDuplicates++;
+          return;
+        }
+        if (batchTitleSigs.has(tSig) && normalizeTextStrict(item.prompt).length <= 35) {
+          internalDuplicates++;
+          return;
+        }
+
+        batchBodySigs.add(bSig);
+        batchTitleSigs.add(tSig);
+        existingBodySigs.add(bSig);
+        existingTitleSigs.add(tSig);
+        uniqueItems.push(item);
+      });
+
+      return {
+        uniqueItems,
+        existingDuplicates,
+        internalDuplicates,
+        totalDuplicates: existingDuplicates + internalDuplicates
+      };
+    }
+
+    function filterUniqueIncoming(incomingList, existingList) {
+      const result = verifyBatchDeduplication(incomingList, existingList);
+      return {
+        uniqueItems: result.uniqueItems,
+        duplicatesCount: result.totalDuplicates,
+        existingDuplicates: result.existingDuplicates,
+        internalDuplicates: result.internalDuplicates
+      };
+    }
+
+    /* =========================================================================
+       CLASIFICADOR AUTOMÁTICO DE CATEGORÍA Y DIFICULTAD
+       ========================================================================= */
+    function inferPromptCategory(title, body) {
+      const text = `${title || ""} ${body || ""}`.toLowerCase();
+      if (/(code|sql|python|javascript|typescript|react|linux|terminal|api|git|debug|docker|kubernetes|html|css|developer|program|regex|database|rust|golang|software|arquitect|server)/.test(text)) {
+        return "desarrollo";
+      }
+      if (/(seo|marketing|ads|copywrit|landing|funnel|email|sales|ventas|brand|social media|tiktok|instagram|growth|conversion|producto|campaña|publicidad)/.test(text)) {
+        return "marketing";
+      }
+      if (/(story|poem|novel|screenplay|guion|music|song|creative|creativ|metaphor|fiction|character|game|art|design|narrativa|historia|comedian|worldbuilding)/.test(text)) {
+        return "creatividad";
+      }
+      return "productividad";
+    }
+
+    function inferPromptDifficulty(body) {
+      const len = (body || "").length;
+      if (len > 420) return "Avanzado";
+      if (len > 200) return "Intermedio";
+      return "Principiante";
+    }
+
+    /* =========================================================================
+       PARSER CSV RFC-4180 PARA FUENTES REALES DE GITHUB
+       ========================================================================= */
+    function parseCSVRows(csvText) {
+      const rows = [];
+      let currentRow = [];
+      let currentField = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+        const ch = csvText[i];
+        const next = csvText[i + 1];
+
+        if (inQuotes) {
+          if (ch === '"' && next === '"') {
+            currentField += '"';
+            i++;
+          } else if (ch === '"') {
+            inQuotes = false;
+          } else {
+            currentField += ch;
+          }
+        } else {
+          if (ch === '"') {
+            inQuotes = true;
+          } else if (ch === ',') {
+            currentRow.push(currentField);
+            currentField = "";
+          } else if (ch === '\r' && next === '\n') {
+            currentRow.push(currentField);
+            rows.push(currentRow);
+            currentRow = [];
+            currentField = "";
+            i++;
+          } else if (ch === '\n' || ch === '\r') {
+            currentRow.push(currentField);
+            rows.push(currentRow);
+            currentRow = [];
+            currentField = "";
+          } else {
+            currentField += ch;
+          }
+        }
+      }
+      if (currentField.length > 0 || currentRow.length > 0) {
+        currentRow.push(currentField);
+        rows.push(currentRow);
+      }
+      return rows;
+    }
+
+    async function fetchAwesomeGitHubPrompts(requestedCount, existingPrompts) {
+      const urls = [
+        "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv",
+        "https://raw.githubusercontent.com/f/prompts.chat/main/prompts.csv"
+      ];
+
+      for (const url of urls) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 7000);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timer);
+          if (!res.ok) continue;
+
+          const text = await res.text();
+          const rows = parseCSVRows(text);
+          if (rows.length < 2) continue;
+
+          const header = rows[0].map(h => h.trim().toLowerCase());
+          const actIdx = header.indexOf("act") >= 0 ? header.indexOf("act") : 0;
+          const promptIdx = header.indexOf("prompt") >= 0 ? header.indexOf("prompt") : 1;
+
+          const candidates = [];
+          for (let i = 1; i < rows.length; i++) {
+            const cols = rows[i];
+            if (!cols || cols.length <= Math.max(actIdx, promptIdx)) continue;
+            const title = (cols[actIdx] || "").trim();
+            const body = (cols[promptIdx] || "").trim();
+            if (!title || body.length < 30) continue;
+
+            candidates.push({
+              id: `gh-awesome-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+              title: title,
+              category: inferPromptCategory(title, body),
+              difficulty: inferPromptDifficulty(body),
+              description: `Prompt oficial de la comunidad Awesome ChatGPT Prompts (${title}).`,
+              prompt: body,
+              author: "Awesome-ChatGPT (GitHub)",
+              isNew: true
+            });
+          }
+
+          const verified = verifyBatchDeduplication(candidates, existingPrompts);
+          if (verified.uniqueItems.length > 0) {
+            return {
+              fromInternet: true,
+              items: verified.uniqueItems.slice(0, requestedCount),
+              analyzed: candidates.length,
+              existingDuplicates: verified.existingDuplicates,
+              internalDuplicates: verified.internalDuplicates
+            };
+          }
+        } catch (err) {
+          // Intentar siguiente espejo o respaldo local
+        }
+      }
+      return null;
+    }
+
+    /* =========================================================================
+       GENERADOR COMBINATORIO SIN REPETICIONES NI DUPLICADOS DE TÍTULO
        ========================================================================= */
     function generateUniqueBatchItems(sourceKey, page, requestedCount, existingPrompts) {
-      const existingSignatures = new Set(existingPrompts.map(p => getNormalizedSignature(p)));
+      const existingBodySigs = new Set(existingPrompts.map(p => getNormalizedSignature(p)));
+      const existingTitleSigs = new Set(existingPrompts.map(p => getNormalizedTitleSignature(p)));
       const results = [];
       const author = sourceKey === "awesome" ? "Awesome-ChatGPT" : (sourceKey === "anthropic" ? "Anthropic Hub" : "@sergioprompts");
       
       const roles = COMBINATORIAL_DATA.roles;
       const techs = COMBINATORIAL_DATA.technologies;
       const tasks = COMBINATORIAL_DATA.tasks;
+      const approaches = COMBINATORIAL_DATA.approaches;
 
       let attempts = 0;
-      let offset = (page - 1) * requestedCount;
+      const offset = (page - 1) * requestedCount;
+      const maxAttempts = requestedCount * 20;
 
-      while (results.length < requestedCount && attempts < (requestedCount * 8)) {
+      while (results.length < requestedCount && attempts < maxAttempts) {
         const idx = offset + attempts;
         const role = roles[idx % roles.length];
         const tech = techs[(idx * 3) % techs.length];
         const taskObj = tasks[(idx * 7) % tasks.length];
+        const approach = approaches[Math.floor(idx / (techs.length * tasks.length)) % approaches.length];
 
-        const cleanTitle = `${taskObj.task} con ${tech.name}`;
-        const uniqueId = `batch-${sourceKey}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        let candidateTitle = `${taskObj.task} con ${tech.name}`;
+        let testTitleSig = getNormalizedTitleSignature({ title: candidateTitle, category: tech.cat });
+        if (existingTitleSigs.has(testTitleSig)) {
+          candidateTitle = `${taskObj.task} con ${tech.name} (${approach})`;
+          testTitleSig = getNormalizedTitleSignature({ title: candidateTitle, category: tech.cat });
+        }
+        if (existingTitleSigs.has(testTitleSig)) {
+          candidateTitle = `${taskObj.task} en ${tech.name} — ${role}`;
+          testTitleSig = getNormalizedTitleSignature({ title: candidateTitle, category: tech.cat });
+        }
+
+        const uniqueId = `batch-${sourceKey}-${Date.now()}-${attempts}-${Math.random().toString(36).substring(2, 7)}`;
 
         const promptBody = `Actúa como un ${role} experto en ${tech.name}.\n\nTu objetivo prioritario es ${taskObj.obj}\n\nInstrucciones de ejecución:\n1. Proporciona una explicación técnica fundamentada paso a paso.\n2. Incluye plantillas o código listo para producción.\n3. Señala el error más común que comete el 90% de los profesionales y cómo evitarlo.\n4. Formato de salida: Estructurado en viñetas directas sin texto de relleno.`;
 
         const candidate = {
           id: uniqueId,
-          title: cleanTitle,
+          title: candidateTitle,
           category: tech.cat,
           difficulty: attempts % 3 === 0 ? "Avanzado" : (attempts % 2 === 0 ? "Intermedio" : "Principiante"),
           description: `Instrucción especializada para ${taskObj.task.toLowerCase()} enfocada en ${tech.name}.`,
@@ -690,9 +1045,10 @@
           isNew: true
         };
 
-        const sig = getNormalizedSignature(candidate);
-        if (!existingSignatures.has(sig)) {
-          existingSignatures.add(sig);
+        const bSig = getNormalizedSignature(candidate);
+        if (!existingBodySigs.has(bSig) && !existingTitleSigs.has(testTitleSig)) {
+          existingBodySigs.add(bSig);
+          existingTitleSigs.add(testTitleSig);
           results.push(candidate);
         }
         attempts++;
@@ -736,15 +1092,15 @@
        ARRANQUE
        ========================================================================= */
     async function initApp() {
-      let savedPrompts = await dbGet("prompts");
-      prompts = (Array.isArray(savedPrompts)) ? savedPrompts : [];
+      const savedPrompts = await dbGet("prompts");
+      prompts = Array.isArray(savedPrompts) ? savedPrompts : [];
 
       const savedPage = await dbGet("batch_page");
       currentBatchPage = savedPage ? parseInt(savedPage, 10) : 1;
       updateBatchPageDisplay();
 
       const savedFavs = await dbGet("favorites");
-      favorites = (Array.isArray(savedFavs)) ? new Set(savedFavs) : new Set();
+      favorites = Array.isArray(savedFavs) ? new Set(savedFavs) : new Set();
 
       const savedTools = await dbGet("tools");
       tools = (Array.isArray(savedTools) && savedTools.length > 0) ? savedTools : [...INITIAL_TOOLS];
@@ -805,6 +1161,50 @@
       if (statTodasEl) statTodasEl.innerText = totalAll;
       if (statNuevosEl) statNuevosEl.innerText = totalNuevos;
       if (bannerNuevosCount) bannerNuevosCount.innerText = totalNuevos;
+    }
+
+    function updateFilteredCounters(filteredCount) {
+      const headerFiltered = document.getElementById("stat-filtered-count");
+      const inlinePill = document.getElementById("search-filtered-pill");
+      const inlineCount = document.getElementById("search-filtered-inline");
+      const activeSummary = document.getElementById("active-filter-summary");
+      const activeSummaryText = document.getElementById("active-filter-summary-text");
+
+      if (headerFiltered) headerFiltered.innerText = filteredCount;
+      if (inlineCount) inlineCount.innerText = filteredCount;
+
+      const hasTextQuery = searchQuery.trim().length > 0;
+      const hasAnyFilter = hasTextQuery || currentDifficulty !== "all" || onlyFavorites;
+
+      if (inlinePill) {
+        if (hasTextQuery) {
+          inlinePill.classList.remove("hidden");
+        } else {
+          inlinePill.classList.add("hidden");
+        }
+      }
+
+      if (activeSummary && activeSummaryText) {
+        if (hasAnyFilter) {
+          const scopeTotal = currentCategory === "nuevos"
+            ? prompts.filter(p => p.isNew).length
+            : (currentCategory === "all"
+                ? prompts.filter(p => !p.isNew).length
+                : prompts.filter(p => !p.isNew && p.category === currentCategory).length);
+
+          const parts = [];
+          if (hasTextQuery) parts.push(`texto "${searchQuery.trim()}"`);
+          if (currentDifficulty !== "all") parts.push(`dificultad ${currentDifficulty}`);
+          if (onlyFavorites) parts.push("solo favoritos");
+
+          activeSummaryText.innerHTML = `<strong>${filteredCount}</strong> filtrados encontrados (de ${scopeTotal} en esta pestaña) por ${escapeHtml(parts.join(" + "))}.`;
+          activeSummary.classList.remove("hidden");
+          activeSummary.classList.add("flex");
+        } else {
+          activeSummary.classList.add("hidden");
+          activeSummary.classList.remove("flex");
+        }
+      }
     }
 
     function renderCategoryPills() {
@@ -890,7 +1290,7 @@
     }
 
     /* =========================================================================
-       DETECTOR DE DUPLICADOS EN MEMORIA (PARA PURGAR SESIONES ANTERIORES)
+       DETECTOR DE DUPLICADOS EN MEMORIA
        ========================================================================= */
     function getDuplicateIds() {
       const seen = new Map();
@@ -936,7 +1336,6 @@
         const count = dupIds.size;
         prompts = prompts.filter(p => !dupIds.has(p.id));
         
-        // Limpiar cualquier residuo de numeración #... en los títulos restantes
         prompts.forEach(p => {
           if (p.title) {
             p.title = p.title.replace(/#\d+(\.\d+)?/g, "").trim();
@@ -952,47 +1351,92 @@
     }
 
     /* =========================================================================
-       EJECUTAR CARGA POR LOTES (CON FILTRADO PREVENTIVO EN EL ACTO)
+       EJECUTAR CARGA POR LOTES CON VERIFICACIÓN EXHAUSTIVA
        ========================================================================= */
+    function showBatchVerificationReport(text) {
+      const box = document.getElementById("batch-verification-report");
+      const span = document.getElementById("batch-verification-text");
+      if (box && span) {
+        span.innerText = text;
+        box.classList.remove("hidden");
+        box.classList.add("flex");
+      }
+    }
+
     async function executeBatchLoad() {
       const sourceSelect = document.getElementById("batch-source-select");
       const countInput = document.getElementById("batch-count-input");
+      const btn = document.getElementById("btn-execute-batch");
 
       const sourceKey = sourceSelect ? sourceSelect.value : "sergioprompts";
       let count = parseInt(countInput ? countInput.value : 50, 10);
       if (isNaN(count) || count < 1) count = 50;
 
-      // Generar elementos candidatos que no existan ya en la biblioteca
-      const newUniqueItems = generateUniqueBatchItems(sourceKey, currentBatchPage, count, prompts);
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add("opacity-70");
+      }
 
-      if (newUniqueItems.length === 0) {
+      try {
+        let rawCandidates = [];
+        let originLabel = "Generador Combinatorio";
+        let preExistingDups = 0;
+        let preInternalDups = 0;
+
+        if (sourceKey === "awesome") {
+          const ghResult = await fetchAwesomeGitHubPrompts(count, prompts);
+          if (ghResult && ghResult.items.length > 0) {
+            rawCandidates = ghResult.items;
+            originLabel = "GitHub Oficial (Awesome ChatGPT Prompts)";
+            preExistingDups = ghResult.existingDuplicates;
+            preInternalDups = ghResult.internalDuplicates;
+          }
+        }
+
+        if (rawCandidates.length === 0) {
+          rawCandidates = generateUniqueBatchItems(sourceKey, currentBatchPage, count, prompts);
+        }
+
+        const audit = verifyBatchDeduplication(rawCandidates, prompts);
+        const verifiedItems = audit.uniqueItems;
+
+        if (verifiedItems.length === 0) {
+          currentBatchPage++;
+          await savePageToStorage();
+          updateBatchPageDisplay();
+          showBatchVerificationReport(`0 añadidos: todos los candidatos ya existían en tus categorías (${audit.existingDuplicates + preExistingDups} duplicados descartados).`);
+          showToast("⚠️ Todos los prompts de este lote ya existían. Se avanzó de página.");
+          return;
+        }
+
+        prompts.forEach(p => p.isNew = false);
+        verifiedItems.forEach(p => p.isNew = true);
+
+        prompts = prompts.concat(verifiedItems);
+        await savePromptsToStorage();
+
+        const postDups = getDuplicateIds();
+        const completedPage = currentBatchPage;
         currentBatchPage++;
         await savePageToStorage();
         updateBatchPageDisplay();
-        showToast("⚠️ Todos los prompts de este lote ya existían. Se avanzó de página.");
-        return;
+
+        currentCategory = "nuevos";
+        detectAndShowDuplicates();
+        renderCategoryPills();
+        renderPrompts();
+
+        const totalOmitted = preExistingDups + preInternalDups + audit.totalDuplicates;
+        showBatchVerificationReport(
+          `${originLabel} • ${verifiedItems.length} prompts únicos ingresados a "🔥 Nuevos" • ${totalOmitted} duplicados descartados • Duplicados totales en biblioteca: ${postDups.size}.`
+        );
+        showToast(`¡Cargados ${verifiedItems.length} prompts únicos en 'Nuevos' (Pág. ${completedPage})!`);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove("opacity-70");
+        }
       }
-
-      // Marcar como Nuevos ÚNICAMENTE los que entran ahora
-      prompts.forEach(p => p.isNew = false);
-      newUniqueItems.forEach(p => p.isNew = true);
-
-      // Anexar exclusivamente prompts diferentes
-      prompts = prompts.concat(newUniqueItems);
-      await savePromptsToStorage();
-
-      const completedPage = currentBatchPage;
-      currentBatchPage++;
-      await savePageToStorage();
-      updateBatchPageDisplay();
-
-      // Situar en la pestaña 'nuevos'
-      currentCategory = "nuevos";
-      detectAndShowDuplicates();
-      renderCategoryPills();
-      renderPrompts();
-
-      showToast(`¡Cargados ${newUniqueItems.length} prompts únicos en 'Nuevos' (Pág. ${completedPage})!`);
     }
 
     /* VACIAR BIBLIOTECA */
@@ -1015,6 +1459,8 @@
       if (sInp) sInp.value = "";
       const clearBtn = document.getElementById("clear-search");
       if (clearBtn) clearBtn.classList.add("hidden");
+      const report = document.getElementById("batch-verification-report");
+      if (report) report.classList.add("hidden");
 
       detectAndShowDuplicates();
       renderCategoryPills();
@@ -1033,7 +1479,7 @@
 
       const backup = {
         app: "PromptVault_Clean",
-        version: "11.0",
+        version: "11.1",
         exportDate: new Date().toISOString(),
         currentBatchPage: currentBatchPage,
         totalPrompts: prompts.length,
@@ -1088,16 +1534,15 @@
             }
             if (Array.isArray(data.tools)) {
               tools = data.tools;
-              saveToolsToStorage();
+              await saveToolsToStorage();
             }
             if (Array.isArray(data.favorites)) {
               favorites = new Set(data.favorites);
-              saveFavoritesToStorage();
+              await saveFavoritesToStorage();
             }
           }
 
           if (incomingPrompts.length > 0) {
-            // FILTRADO PREVENTIVO EN TIEMPO DE IMPORTACIÓN:
             const { uniqueItems, duplicatesCount } = filterUniqueIncoming(incomingPrompts, prompts);
 
             if (uniqueItems.length === 0) {
@@ -1105,11 +1550,9 @@
               return;
             }
 
-            // Marcar como Nuevos únicamente los diferentes que se añaden
             prompts.forEach(p => p.isNew = false);
             uniqueItems.forEach(p => p.isNew = true);
 
-            // Anexar solo los únicos
             prompts = prompts.concat(uniqueItems);
             await savePromptsToStorage();
 
@@ -1131,6 +1574,500 @@
       };
       reader.readAsText(file);
       event.target.value = "";
+    }
+
+    /* =========================================================================
+       RADAR INTERNET: BÚSQUEDA RÁPIDA DE WEBS, GENERADORES Y EXTRACCIÓN (MÁX. 5)
+       ========================================================================= */
+    let internetDiscoveredSources = [];
+    let internetPromptQueue = [];
+    let internetCursor = 0;
+    let internetShownBatch = [];
+    let internetHfOffset = 0;
+
+    function openInternetSearchModal(autoRun = false) {
+      const modal = document.getElementById("internet-search-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      if (autoRun) {
+        runInternetQuickSearch();
+      }
+    }
+
+    function closeInternetSearchModal() {
+      const modal = document.getElementById("internet-search-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function handleInternetSearchSubmit(e) {
+      e.preventDefault();
+      runInternetQuickSearch();
+    }
+
+    function setInternetStatus(visible, text = "") {
+      const box = document.getElementById("internet-search-status");
+      const label = document.getElementById("internet-status-text");
+      if (!box || !label) return;
+      if (visible) {
+        label.innerText = text;
+        box.classList.remove("hidden");
+        box.classList.add("flex");
+      } else {
+        box.classList.add("hidden");
+        box.classList.remove("flex");
+      }
+    }
+
+    async function fetchWithTimeout(url, timeoutMs = 6500) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        return res;
+      } catch (err) {
+        clearTimeout(timer);
+        throw err;
+      }
+    }
+
+    function extractPromptsFromMarkdown(mdText, sourceName, sourceUrl) {
+      const extracted = [];
+      if (!mdText || mdText.length < 60) return extracted;
+
+      const sections = mdText.split(/^#{2,4}\s+/m);
+      for (let i = 1; i < sections.length; i++) {
+        const block = sections[i];
+        const lines = block.split("\n");
+        const heading = (lines[0] || "").replace(/[#*_`\[\]]/g, "").trim();
+        if (!heading || heading.length < 3 || heading.length > 100) continue;
+        if (/^(table of contents|installation|license|contributing|sponsor|usage|setup|acknowledg|changelog)/i.test(heading)) continue;
+
+        const rest = lines.slice(1).join("\n");
+        let candidateBody = "";
+
+        const codeMatch = rest.match(/```(?:markdown|text|prompt)?\n([\s\S]{35,2000}?)```/i);
+        if (codeMatch && codeMatch[1]) {
+          candidateBody = codeMatch[1].trim();
+        } else {
+          const quoteLines = lines.slice(1).filter(l => l.trim().startsWith(">"));
+          if (quoteLines.length > 0) {
+            candidateBody = quoteLines.map(l => l.replace(/^>\s?/, "")).join("\n").trim();
+          } else {
+            const paragraphs = rest.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length >= 45 && p.length <= 1800);
+            const matchPara = paragraphs.find(p =>
+              /(act as|actúa como|you are|eres un|i want you to|quiero que|generate|write a|create a|analyze|analiza|redact|\[[A-Z0-9_]+\])/i.test(p)
+            );
+            if (matchPara) candidateBody = matchPara;
+          }
+        }
+
+        if (!candidateBody || candidateBody.length < 40) continue;
+        if (/(npm install|pip install|git clone|docker run|curl -|http:\/\/|https:\/\/.*badge)/i.test(candidateBody)) continue;
+
+        extracted.push({
+          id: `web-md-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+          title: heading,
+          category: inferPromptCategory(heading, candidateBody),
+          difficulty: inferPromptDifficulty(candidateBody),
+          description: `Extraído en vivo desde ${sourceName}`,
+          prompt: candidateBody,
+          author: sourceName,
+          sourceUrl: sourceUrl,
+          isNew: true
+        });
+
+        if (extracted.length >= 12) break;
+      }
+      return extracted;
+    }
+
+    function extractPromptsFromJSONPayload(data, sourceName, sourceUrl) {
+      const extracted = [];
+      const arr = Array.isArray(data) ? data : (Array.isArray(data?.prompts) ? data.prompts : []);
+      for (let i = 0; i < arr.length && extracted.length < 15; i++) {
+        const item = arr[i];
+        if (!item || typeof item !== "object") continue;
+        const title = (item.act || item.title || item.name || item.role || "").toString().trim();
+        const body = (item.prompt || item.content || item.text || item.system_prompt || "").toString().trim();
+        if (title.length < 3 || body.length < 35) continue;
+
+        extracted.push({
+          id: `web-json-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+          title: title.slice(0, 100),
+          category: inferPromptCategory(title, body),
+          difficulty: inferPromptDifficulty(body),
+          description: `Extraído en vivo desde ${sourceName}`,
+          prompt: body,
+          author: sourceName,
+          sourceUrl: sourceUrl,
+          isNew: true
+        });
+      }
+      return extracted;
+    }
+
+    async function inspectGitHubRepoForPrompts(repo) {
+      try {
+        const contentsRes = await fetchWithTimeout(`https://api.github.com/repos/${repo.full_name}/contents`, 5500);
+        if (!contentsRes.ok) return [];
+        const files = await contentsRes.json();
+        if (!Array.isArray(files)) return [];
+
+        const priorityFiles = ["prompts.csv", "prompts.json", "PROMPTS.md", "prompts.md", "README.md"];
+        const matchedFile = priorityFiles
+          .map(name => files.find(f => f.type === "file" && f.name.toLowerCase() === name.toLowerCase()))
+          .find(Boolean);
+
+        if (!matchedFile || !matchedFile.download_url) return [];
+
+        const rawRes = await fetchWithTimeout(matchedFile.download_url, 6000);
+        if (!rawRes.ok) return [];
+        const rawText = await rawRes.text();
+
+        if (matchedFile.name.toLowerCase().endsWith(".csv")) {
+          const rows = parseCSVRows(rawText);
+          if (rows.length < 2) return [];
+          const header = rows[0].map(h => h.trim().toLowerCase());
+          const actIdx = header.findIndex(h => ["act", "title", "role", "name"].includes(h));
+          const promptIdx = header.findIndex(h => ["prompt", "text", "content"].includes(h));
+          const tIdx = actIdx >= 0 ? actIdx : 0;
+          const pIdx = promptIdx >= 0 ? promptIdx : 1;
+
+          const out = [];
+          for (let i = 1; i < rows.length && out.length < 12; i++) {
+            const cols = rows[i];
+            if (!cols || cols.length <= Math.max(tIdx, pIdx)) continue;
+            const title = (cols[tIdx] || "").trim();
+            const body = (cols[pIdx] || "").trim();
+            if (title.length < 3 || body.length < 35) continue;
+            out.push({
+              id: `web-csv-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+              title: title.slice(0, 100),
+              category: inferPromptCategory(title, body),
+              difficulty: inferPromptDifficulty(body),
+              description: `Extraído en vivo desde ${repo.full_name} (${matchedFile.name})`,
+              prompt: body,
+              author: repo.full_name,
+              sourceUrl: repo.html_url,
+              isNew: true
+            });
+          }
+          return out;
+        }
+
+        if (matchedFile.name.toLowerCase().endsWith(".json")) {
+          const parsed = JSON.parse(rawText);
+          return extractPromptsFromJSONPayload(parsed, repo.full_name, repo.html_url);
+        }
+
+        return extractPromptsFromMarkdown(rawText, repo.full_name, repo.html_url);
+      } catch (err) {
+        return [];
+      }
+    }
+
+    async function fetchHuggingFacePromptRows(topic, offset = 0) {
+      try {
+        const url = `https://datasets-server.huggingface.co/rows?dataset=fka%2Fawesome-chatgpt-prompts&config=default&split=train&offset=${offset}&length=20`;
+        const res = await fetchWithTimeout(url, 6000);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        const q = (topic || "").trim().toLowerCase();
+
+        const out = [];
+        rows.forEach((entry, idx) => {
+          const row = entry?.row;
+          if (!row) return;
+          const title = (row.act || row.title || "").trim();
+          const body = (row.prompt || "").trim();
+          if (title.length < 3 || body.length < 35) return;
+          if (q && !title.toLowerCase().includes(q) && !body.toLowerCase().includes(q)) return;
+
+          out.push({
+            id: `web-hf-${Date.now()}-${offset}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+            title: title,
+            category: inferPromptCategory(title, body),
+            difficulty: inferPromptDifficulty(body),
+            description: "Extraído en vivo desde HuggingFace Dataset Hub (fka/awesome-chatgpt-prompts)",
+            prompt: body,
+            author: "HuggingFace Hub",
+            sourceUrl: "https://huggingface.co/datasets/fka/awesome-chatgpt-prompts",
+            isNew: true
+          });
+        });
+        return out;
+      } catch (err) {
+        return [];
+      }
+    }
+
+    async function runInternetQuickSearch() {
+      const topic = (document.getElementById("internet-topic-input")?.value || "").trim();
+      const btn = document.getElementById("btn-run-internet-search");
+      const sourcesSec = document.getElementById("internet-sources-section");
+      const promptsSec = document.getElementById("internet-prompts-section");
+      const emptySec = document.getElementById("internet-empty-state");
+
+      if (btn) btn.disabled = true;
+      sourcesSec.classList.add("hidden");
+      promptsSec.classList.add("hidden");
+      emptySec.classList.add("hidden");
+      setInternetStatus(true, topic
+        ? `Buscando en Internet webs y generadores sobre "${topic}"...`
+        : "Buscando en Internet páginas web, repositorios y generadores de prompts...");
+
+      internetDiscoveredSources = [];
+      internetPromptQueue = [];
+      internetCursor = 0;
+      internetShownBatch = [];
+
+      try {
+        const ghQuery = topic
+          ? `${topic} ai prompts OR chatgpt prompts`
+          : `awesome chatgpt prompts OR system prompts generator`;
+        const ghSearchUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(ghQuery)}&sort=stars&order=desc&per_page=6`;
+        const hfSearchUrl = `https://huggingface.co/api/datasets?search=${encodeURIComponent(topic ? topic + " prompt" : "prompts")}&sort=downloads&direction=-1&limit=4`;
+
+        const [ghRes, hfRes, hfRows] = await Promise.allSettled([
+          fetchWithTimeout(ghSearchUrl, 6500),
+          fetchWithTimeout(hfSearchUrl, 6500),
+          fetchHuggingFacePromptRows(topic, internetHfOffset)
+        ]);
+
+        let repos = [];
+        if (ghRes.status === "fulfilled" && ghRes.value.ok) {
+          const ghData = await ghRes.value.json();
+          if (Array.isArray(ghData.items)) {
+            repos = ghData.items.slice(0, 5);
+            repos.forEach(r => {
+              internetDiscoveredSources.push({
+                name: r.full_name,
+                url: r.html_url,
+                type: "GitHub / Generador",
+                desc: r.description || "Repositorio abierto con colección o generador de prompts.",
+                stars: r.stargazers_count || 0
+              });
+            });
+          }
+        }
+
+        if (hfRes.status === "fulfilled" && hfRes.value.ok) {
+          const hfData = await hfRes.value.json();
+          if (Array.isArray(hfData)) {
+            hfData.slice(0, 3).forEach(ds => {
+              internetDiscoveredSources.push({
+                name: ds.id,
+                url: `https://huggingface.co/datasets/${ds.id}`,
+                type: "HuggingFace Dataset",
+                desc: `Dataset público de prompts (${ds.downloads || 0} descargas).`,
+                stars: ds.likes || 0
+              });
+            });
+          }
+        }
+
+        setInternetStatus(true, "Extrayendo prompts únicos desde las páginas encontradas...");
+
+        const extractedCandidates = [];
+        if (hfRows.status === "fulfilled" && Array.isArray(hfRows.value)) {
+          extractedCandidates.push(...hfRows.value);
+          internetHfOffset = (internetHfOffset + 20) % 140;
+        }
+
+        if (repos.length > 0) {
+          const repoExtractions = await Promise.allSettled(
+            repos.slice(0, 4).map(r => inspectGitHubRepoForPrompts(r))
+          );
+          repoExtractions.forEach(res => {
+            if (res.status === "fulfilled" && Array.isArray(res.value)) {
+              extractedCandidates.push(...res.value);
+            }
+          });
+        } else {
+          const directFallback = await fetchAwesomeGitHubPrompts(25, prompts);
+          if (directFallback && directFallback.items.length > 0) {
+            internetDiscoveredSources.push({
+              name: "f/awesome-chatgpt-prompts",
+              url: "https://github.com/f/awesome-chatgpt-prompts",
+              type: "GitHub Oficial",
+              desc: "Colección abierta de referencia para prompts de ChatGPT e IA.",
+              stars: 100000
+            });
+            directFallback.items.forEach(item => {
+              item.sourceUrl = "https://github.com/f/awesome-chatgpt-prompts";
+              extractedCandidates.push(item);
+            });
+          }
+        }
+
+        const verified = verifyBatchDeduplication(extractedCandidates, prompts);
+        internetPromptQueue = verified.uniqueItems;
+
+        renderInternetSources();
+        showNextInternetBatch(true);
+      } catch (err) {
+        emptySec.classList.remove("hidden");
+        emptySec.classList.add("flex");
+        document.getElementById("internet-empty-title").innerText = "No se pudo completar la consulta en Internet.";
+        document.getElementById("internet-empty-desc").innerText = "Verifica tu conexión a Internet o intenta nuevamente en unos segundos.";
+      } finally {
+        setInternetStatus(false);
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function renderInternetSources() {
+      const sec = document.getElementById("internet-sources-section");
+      const list = document.getElementById("internet-sources-list");
+      const badge = document.getElementById("internet-sources-count");
+
+      if (internetDiscoveredSources.length === 0) {
+        sec.classList.add("hidden");
+        return;
+      }
+
+      badge.innerText = internetDiscoveredSources.length;
+      list.innerHTML = internetDiscoveredSources.map(src => `
+        <a href="${escapeHtml(sanitizeUrl(src.url))}" target="_blank" rel="noopener noreferrer"
+           class="p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-cyan-500/50 transition-all flex flex-col justify-between gap-1.5 group">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-cyan-300 group-hover:text-cyan-200 truncate">${escapeHtml(src.name)}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 shrink-0">${escapeHtml(src.type)}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 line-clamp-2">${escapeHtml(src.desc)}</p>
+          <span class="text-[10px] text-slate-500 font-mono truncate">${escapeHtml(src.url)} ↗</span>
+        </a>
+      `).join("");
+
+      sec.classList.remove("hidden");
+    }
+
+    function showNextInternetBatch(isInitial = false) {
+      const promptsSec = document.getElementById("internet-prompts-section");
+      const emptySec = document.getElementById("internet-empty-state");
+      const btnNext = document.getElementById("btn-internet-next-5");
+
+      const remaining = internetPromptQueue
+        .slice(internetCursor)
+        .filter(item => verifyBatchDeduplication([item], prompts).uniqueItems.length > 0);
+
+      // ESTRICTAMENTE MÁXIMO 5 POR VEZ
+      internetShownBatch = internetPromptQueue.slice(internetCursor, internetCursor + 5);
+      internetCursor += internetShownBatch.length;
+
+      if (internetShownBatch.length === 0 && remaining.length > 0) {
+        internetShownBatch = remaining.slice(0, 5);
+      }
+
+      if (internetShownBatch.length === 0) {
+        promptsSec.classList.add("hidden");
+        emptySec.classList.remove("hidden");
+        emptySec.classList.add("flex");
+        document.getElementById("internet-empty-title").innerText = isInitial
+          ? "No se pudieron extraer prompts nuevos desde las webs consultadas."
+          : "Ya recorriste todos los prompts extraídos de esta búsqueda.";
+        document.getElementById("internet-empty-desc").innerText = "Prueba escribiendo otro tema en el buscador superior para descubrir nuevas páginas y generadores.";
+        return;
+      }
+
+      emptySec.classList.add("hidden");
+      emptySec.classList.remove("flex");
+      promptsSec.classList.remove("hidden");
+
+      if (internetCursor < internetPromptQueue.length) {
+        btnNext.classList.remove("hidden");
+      } else {
+        btnNext.classList.add("hidden");
+      }
+
+      renderInternetPromptCards();
+    }
+
+    function renderInternetPromptCards() {
+      const list = document.getElementById("internet-prompts-list");
+      const countBadge = document.getElementById("internet-prompts-count");
+      const importAllCount = document.getElementById("internet-import-all-count");
+      const btnImportAll = document.getElementById("btn-internet-import-all");
+
+      const existingSigs = new Set(prompts.map(p => getNormalizedSignature(p)));
+      const pendingCount = internetShownBatch.filter(p => !existingSigs.has(getNormalizedSignature(p))).length;
+
+      countBadge.innerText = `${internetShownBatch.length} / 5 máx.`;
+      importAllCount.innerText = pendingCount;
+      btnImportAll.disabled = pendingCount === 0;
+      btnImportAll.classList.toggle("opacity-50", pendingCount === 0);
+
+      list.innerHTML = internetShownBatch.map((item, idx) => {
+        const alreadySaved = existingSigs.has(getNormalizedSignature(item));
+        return `
+          <div class="p-4 rounded-xl bg-slate-900/95 border ${alreadySaved ? 'border-emerald-500/40 opacity-75' : 'border-slate-700'} flex flex-col gap-2">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 uppercase">${escapeHtml(item.category)}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/40">${escapeHtml(item.author)}</span>
+                <h5 class="font-bold text-sm text-white">${escapeHtml(item.title)}</h5>
+              </div>
+              <button 
+                onclick="importSingleInternetPrompt(${idx})"
+                ${alreadySaved ? 'disabled' : ''}
+                class="text-[11px] font-bold px-3 py-1.5 rounded-lg shrink-0 transition-all cursor-pointer ${
+                  alreadySaved
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40 cursor-default'
+                    : 'bg-brand-600 hover:bg-brand-500 text-white shadow'
+                }">
+                ${alreadySaved ? '✓ Ya en biblioteca' : '➕ Añadir a "🔥 Nuevos"'}
+              </button>
+            </div>
+            <p class="text-xs font-mono text-slate-300 bg-slate-950/80 border border-slate-800 rounded-lg p-3 whitespace-pre-wrap max-h-32 overflow-y-auto">${escapeHtml(item.prompt)}</p>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function importSingleInternetPrompt(idx) {
+      const candidate = internetShownBatch[idx];
+      if (!candidate) return;
+
+      const audit = verifyBatchDeduplication([candidate], prompts);
+      if (audit.uniqueItems.length === 0) {
+        showToast("⚠️ Este prompt ya existe en tu biblioteca.");
+        renderInternetPromptCards();
+        return;
+      }
+
+      const itemToSave = { ...audit.uniqueItems[0], isNew: true };
+      prompts.unshift(itemToSave);
+      await savePromptsToStorage();
+
+      currentCategory = "nuevos";
+      detectAndShowDuplicates();
+      renderCategoryPills();
+      renderPrompts();
+      renderInternetPromptCards();
+      showToast(`¡Prompt "${itemToSave.title}" añadido a "🔥 Nuevos"!`);
+    }
+
+    async function importAllShownInternetPrompts() {
+      const audit = verifyBatchDeduplication(internetShownBatch, prompts);
+      if (audit.uniqueItems.length === 0) {
+        showToast("⚠️ Todos los prompts mostrados ya existen en tu biblioteca.");
+        renderInternetPromptCards();
+        return;
+      }
+
+      const itemsToSave = audit.uniqueItems.map(item => ({ ...item, isNew: true }));
+      prompts = itemsToSave.concat(prompts);
+      await savePromptsToStorage();
+
+      currentCategory = "nuevos";
+      detectAndShowDuplicates();
+      renderCategoryPills();
+      renderPrompts();
+      renderInternetPromptCards();
+      showToast(`¡${itemsToSave.length} prompts únicos de Internet añadidos a "🔥 Nuevos"!`);
     }
 
     /* =========================================================================
@@ -1225,23 +2162,23 @@
           <div>
             <div class="flex items-center justify-between gap-2 mb-2">
               <span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40">
-                ${t.badge || 'Gratis'}
+                ${escapeHtml(t.badge || 'Gratis')}
               </span>
               ${t.isPinned ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded flex items-center gap-1">📌 FIJADA</span>' : ''}
             </div>
 
             <h4 class="font-bold text-sm text-white mb-1.5 flex items-center justify-between">
-              <span>${t.name}</span>
+              <span>${escapeHtml(t.name)}</span>
             </h4>
             <p class="text-xs text-slate-300 leading-relaxed mb-4">
-              ${t.description}
+              ${escapeHtml(t.description)}
             </p>
           </div>
 
           <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-1.5">
               <button 
-                onclick="togglePinTool('${t.id}')"
+                onclick="togglePinTool('${escapeHtml(t.id)}')"
                 class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
                   t.isPinned 
                     ? 'bg-amber-950 text-amber-300 border-amber-500' 
@@ -1252,7 +2189,7 @@
               </button>
 
               <button 
-                onclick="toggleSaveTool('${t.id}')"
+                onclick="toggleSaveTool('${escapeHtml(t.id)}')"
                 class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
                   t.isSaved 
                     ? 'bg-cyan-950 text-cyan-300 border-cyan-500' 
@@ -1264,7 +2201,7 @@
             </div>
 
             <a 
-              href="${t.url}" 
+              href="${escapeHtml(sanitizeUrl(t.url))}" 
               target="_blank" 
               rel="noopener noreferrer"
               class="text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow cursor-pointer">
@@ -1310,7 +2247,7 @@
        RENDERIZADO DE PROMPTS
        ========================================================================= */
     function extractVariables(text) {
-      const matches = text.match(/\[([A-Z0-9_ÁÉÍÓÚÑ]+)\]/g);
+      const matches = (text || "").match(/\[([A-Z0-9_ÁÉÍÓÚÑ]+)\]/g);
       if (!matches) return [];
       return [...new Set(matches.map(m => m.slice(1, -1)))];
     }
@@ -1342,10 +2279,13 @@
           const matchTitle = (p.title || "").toLowerCase().includes(q);
           const matchDesc = (p.description || "").toLowerCase().includes(q);
           const matchBody = (p.prompt || "").toLowerCase().includes(q);
-          if (!matchTitle && !matchDesc && !matchBody) return false;
+          const matchAuthor = (p.author || "").toLowerCase().includes(q);
+          if (!matchTitle && !matchDesc && !matchBody && !matchAuthor) return false;
         }
         return true;
       });
+
+      updateFilteredCounters(filtered.length);
 
       if (filtered.length === 0) {
         grid.innerHTML = "";
@@ -1373,7 +2313,7 @@
         const isDup = dupIds.has(p.id);
         const vars = extractVariables(p.prompt);
         const varsPills = vars.slice(0, 3).map(v => 
-          `<span class="bg-slate-800 text-slate-300 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-700">[${v}]</span>`
+          `<span class="bg-slate-800 text-slate-300 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-700">[${escapeHtml(v)}]</span>`
         ).join("");
 
         return `
@@ -1384,28 +2324,28 @@
               <div class="flex items-center justify-between gap-2 mb-2">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
-                    ${p.category}
+                    ${escapeHtml(p.category)}
                   </span>
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded ${
                     p.difficulty === 'Principiante' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40' :
                     p.difficulty === 'Intermedio' ? 'bg-amber-950 text-amber-400 border border-amber-500/40' :
                     'bg-rose-950 text-rose-400 border border-rose-500/40'
                   }">
-                    ${p.difficulty}
+                    ${escapeHtml(p.difficulty)}
                   </span>
                   ${p.isNew ? '<span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/50">NUEVO</span>' : ''}
                   ${isDup ? '<span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-500/60 animate-pulse">⚠️ DUPLICADO</span>' : ''}
                 </div>
-                <button onclick="toggleFavorite('${p.id}')" title="Marcar como favorito" class="p-1 rounded text-slate-400 hover:text-amber-400 font-bold transition-colors cursor-pointer text-base">
+                <button onclick="toggleFavorite('${escapeHtml(p.id)}')" title="Marcar como favorito" class="p-1 rounded text-slate-400 hover:text-amber-400 font-bold transition-colors cursor-pointer text-base">
                   ${isFav ? '⭐' : '☆'}
                 </button>
               </div>
 
               <h4 class="font-bold text-sm text-white group-hover:text-brand-300 transition-colors mb-1">
-                ${p.title}
+                ${escapeHtml(p.title)}
               </h4>
               <p class="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">
-                ${p.description}
+                ${escapeHtml(p.description)}
               </p>
 
               ${vars.length > 0 ? `
@@ -1419,15 +2359,15 @@
             </div>
 
             <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-800">
-              <span class="text-[10px] font-mono text-slate-500 truncate max-w-[130px]">${p.author || 'Importado'}</span>
+              <span class="text-[10px] font-mono text-slate-500 truncate max-w-[130px]">${escapeHtml(p.author || 'Importado')}</span>
               <div class="flex items-center gap-1.5">
                 <button 
-                  onclick="openVariableModal('${p.id}')" 
+                  onclick="openVariableModal('${escapeHtml(p.id)}')" 
                   class="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition-all cursor-pointer">
                   Personalizar
                 </button>
                 <button 
-                  onclick="quickCopy('${p.id}')" 
+                  onclick="quickCopy('${escapeHtml(p.id)}')" 
                   class="text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow">
                   Copiar
                 </button>
@@ -1456,11 +2396,25 @@
       searchInput.value = "";
       searchQuery = "";
       visibleLimit = 60;
-      currentCategory = "all";
       document.getElementById("clear-search").classList.add("hidden");
       renderCategoryPills();
       renderPrompts();
       searchInput.focus();
+    }
+
+    function resetAllSearchFilters() {
+      document.getElementById("search-input").value = "";
+      searchQuery = "";
+      currentDifficulty = "all";
+      document.getElementById("filter-difficulty").value = "all";
+      onlyFavorites = false;
+      const btn = document.getElementById("btn-fav-filter");
+      const label = document.getElementById("fav-btn-label");
+      btn.classList.remove("bg-amber-500/20", "border-amber-500", "text-amber-300");
+      label.innerText = "Solo Favoritos";
+      document.getElementById("clear-search").classList.add("hidden");
+      visibleLimit = 60;
+      renderPrompts();
     }
 
     function applyFilters() {
@@ -1507,15 +2461,17 @@
       });
     }
 
+    let toastTimer = null;
     function showToast(msg) {
       const toast = document.getElementById("toast");
       document.getElementById("toast-message").innerText = msg;
       toast.classList.remove("translate-y-20", "opacity-0");
       toast.classList.add("translate-y-0", "opacity-100");
-      setTimeout(() => {
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
         toast.classList.add("translate-y-20", "opacity-0");
         toast.classList.remove("translate-y-0", "opacity-100");
-      }, 2600);
+      }, 2800);
     }
 
     /* =========================================================================
@@ -1541,11 +2497,11 @@
         varsBox.classList.remove("hidden");
         inputsContainer.innerHTML = variables.map(v => `
           <div>
-            <label class="block text-xs font-mono font-bold text-slate-300 mb-1">[${v}]</label>
+            <label class="block text-xs font-mono font-bold text-slate-300 mb-1">[${escapeHtml(v)}]</label>
             <input 
               type="text" 
-              data-var="${v}" 
-              placeholder="Introduce valor para [${v}]..." 
+              data-var="${escapeHtml(v)}" 
+              placeholder="Introduce valor para [${escapeHtml(v)}]..." 
               oninput="handleVariableInput(event)"
               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
             />
@@ -1569,7 +2525,8 @@
       let processed = activePrompt.prompt;
       for (const [key, val] of Object.entries(currentVariablesValues)) {
         if (val && val.trim() !== "") {
-          const regex = new RegExp(`\\[${key}\\]`, "g");
+          const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regex = new RegExp(`\\[${escapedKey}\\]`, "g");
           processed = processed.replace(regex, val.trim());
         }
       }
@@ -1637,7 +2594,6 @@
         isNew: true
       };
 
-      // Verificar si ya existe antes de añadirlo
       const { uniqueItems } = filterUniqueIncoming([candidatePrompt], prompts);
       if (uniqueItems.length === 0) {
         alert("⚠️ Ya existe un prompt con este contenido en la biblioteca.");
